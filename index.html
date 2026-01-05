@@ -18,13 +18,33 @@
       --shadow: 0 10px 30px rgba(0,0,0,.35);
       --radius:16px;
     }
+
+    /* LIGHT MODE */
+    body.light{
+      --bg:#f5f7fb;
+      --panel:#ffffff;
+      --text:#1f2937;
+      --muted:#6b7280;
+      --line:rgba(0,0,0,.12);
+      --accent:#2563eb;
+      --good:#059669;
+      --warn:#d97706;
+      --bad:#dc2626;
+      --shadow: 0 10px 25px rgba(0,0,0,.08);
+    }
+
     *{box-sizing:border-box}
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans";
-      background: radial-gradient(1200px 700px at 20% 10%, #132041 0%, var(--bg) 55%);
+      background: radial-gradient(
+        1200px 700px at 20% 10%,
+        color-mix(in srgb, var(--accent) 25%, transparent),
+        var(--bg) 55%
+      );
       color:var(--text);
     }
+
     header{
       padding:22px 18px;
       border-bottom:1px solid var(--line);
@@ -46,7 +66,6 @@
       white-space:nowrap;
     }
 
-    /* NEW: stacked layout */
     .stack{
       display:flex;
       flex-direction:column;
@@ -62,8 +81,7 @@
       overflow:hidden;
     }
 
-    /* NEW: collapsible cards */
-    details.card{ }
+    /* Collapsible sections */
     summary.head{
       padding:14px 14px 10px;
       border-bottom:1px solid var(--line);
@@ -93,7 +111,7 @@
       flex: 0 0 auto;
     }
     details[open] .chev{ transform: rotate(180deg); }
-    .cardContent{ padding:0; } /* holds old structure inside */
+    .cardContent{ padding:0; }
 
     .card .body{padding:14px;}
     .row{
@@ -124,11 +142,15 @@
       color: var(--text);
       outline:none;
     }
+    body.light input, body.light select, body.light textarea{
+      background: rgba(255,255,255,.70);
+    }
     textarea{min-height:74px; resize:vertical}
     input:focus, select:focus, textarea:focus{
-      border-color: rgba(122,162,255,.55);
-      box-shadow: 0 0 0 3px rgba(122,162,255,.15);
+      border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
     }
+
     .actions{
       display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:flex-end;
       margin-top:12px;
@@ -142,23 +164,31 @@
       cursor:pointer;
       transition: transform .04s ease, background .2s ease, border-color .2s ease;
     }
+    body.light button{
+      background: rgba(0,0,0,.03);
+    }
     button:hover{background: rgba(255,255,255,.08);}
+    body.light button:hover{background: rgba(0,0,0,.06);}
     button:active{transform: translateY(1px);}
     button:disabled{opacity:.6; cursor:not-allowed;}
     .primary{
-      border-color: rgba(122,162,255,.55);
-      background: rgba(122,162,255,.18);
+      border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+      background: color-mix(in srgb, var(--accent) 18%, transparent);
     }
     .danger{
       border-color: rgba(255,107,107,.55);
       background: rgba(255,107,107,.12);
     }
     .mutedBtn{ color: var(--muted); }
+
     .toolbar{
       display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
       padding:12px 14px;
       border-bottom:1px solid var(--line);
       background: rgba(0,0,0,.10);
+    }
+    body.light .toolbar{
+      background: rgba(0,0,0,.04);
     }
     .toolbar .left, .toolbar .right{
       display:flex; flex-wrap:wrap; gap:10px; align-items:center;
@@ -176,6 +206,7 @@
       border-radius:14px;
       background: rgba(0,0,0,.08);
     }
+    body.light table{ background: rgba(0,0,0,.02); }
     th, td{
       padding:10px 10px;
       border-bottom:1px solid var(--line);
@@ -187,7 +218,9 @@
       color:var(--muted);
       background: rgba(255,255,255,.03);
     }
+    body.light th{ background: rgba(0,0,0,.03); }
     tr:last-child td{border-bottom:none;}
+
     .tag{
       display:inline-flex;
       padding:2px 8px;
@@ -199,6 +232,8 @@
       margin-right:6px;
       white-space:nowrap;
     }
+    body.light .tag{ background: rgba(0,0,0,.03); }
+
     .rate{
       font-variant-numeric: tabular-nums;
       font-weight:600;
@@ -214,6 +249,7 @@
       border-radius:10px;
       font-size:12px;
     }
+
     .footerNote{
       padding: 0 14px 14px;
       color: var(--muted);
@@ -225,7 +261,7 @@
     }
     .toast{
       position:fixed; right:16px; bottom:16px;
-      background: rgba(17,27,46,.92);
+      background: color-mix(in srgb, var(--panel) 92%, transparent);
       border:1px solid var(--line);
       border-radius: 14px;
       padding:10px 12px;
@@ -245,6 +281,7 @@
       border-radius:14px;
       background: rgba(255,255,255,.03);
     }
+    body.light .switch{ background: rgba(0,0,0,.03); }
     .switch input{width:auto}
     .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
   </style>
@@ -258,7 +295,10 @@
         <h1>Voice Targets & Supplier Routes Tracker</h1>
         <div class="subtitle">Local-only (offline) tracker with master lists for consistent naming.</div>
       </div>
-      <div class="pill" id="statsPill">Loading…</div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <div class="pill" id="statsPill">Loading…</div>
+        <button id="themeToggle" class="pill" type="button">Dark</button>
+      </div>
     </div>
   </div>
 </header>
@@ -266,7 +306,6 @@
 <main class="wrap">
   <div class="stack">
 
-    <!-- Customer Targets (Collapsible) -->
     <details class="card" open id="sec_customers">
       <summary class="head">
         <div class="headLeft">
@@ -382,7 +421,6 @@
       </div>
     </details>
 
-    <!-- Supplier Routes (Collapsible) -->
     <details class="card" open id="sec_suppliers">
       <summary class="head">
         <div class="headLeft">
@@ -475,7 +513,6 @@
 
         <div class="divider"></div>
 
-        <!-- Matching / Business Case Helper -->
         <div class="body" style="padding-top:0;">
           <div class="head" style="border:0; background:transparent; padding:0 0 10px;">
             <h2>Quick Match (Business Case)</h2>
@@ -524,7 +561,6 @@
       </div>
     </details>
 
-    <!-- Master Lists (Collapsible) -->
     <details class="card" open id="sec_lists">
       <summary class="head">
         <div class="headLeft">
@@ -579,7 +615,6 @@
       </div>
     </details>
 
-    <!-- Backup / Restore (Collapsible) -->
     <details class="card" id="sec_backup">
       <summary class="head">
         <div class="headLeft">
@@ -616,31 +651,22 @@
 </div>
 
 <script>
-/* =========================
-   Storage Key
-========================= */
 const KEY = "voice_targets_routes_v2_lists";
+const THEME_KEY = "voice_tracker_theme";
 
-/* =========================
-   Helpers
-========================= */
+/* Helpers */
 function todayISO(){
   const d = new Date();
   const off = d.getTimezoneOffset();
   const local = new Date(d.getTime() - off*60*1000);
   return local.toISOString().slice(0,10);
 }
-function uid(){
-  return Math.random().toString(16).slice(2) + "-" + Date.now().toString(16);
-}
+function uid(){ return Math.random().toString(16).slice(2) + "-" + Date.now().toString(16); }
 function norm_(s){ return (s ?? "").toString().trim(); }
 function escapeHtml(str){
   return (str ?? "").toString()
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
 }
 function toNumberMaybe(v){
   const x = (v ?? "").toString().trim();
@@ -660,11 +686,9 @@ function download(filename, content, mime){
   const blob = new Blob([content], {type: mime});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
+  a.href = url; a.download = filename;
   document.body.appendChild(a);
-  a.click();
-  a.remove();
+  a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 800);
 }
 function csvEscape(val){
@@ -684,8 +708,7 @@ function rateBadge(delta){
   return `<span class="tag ${cls}">${label}</span>`;
 }
 function uniqueSorted_(arr){
-  const out = [];
-  const seen = new Set();
+  const out = []; const seen = new Set();
   for(const x of arr){
     const v = norm_(x);
     if(!v) continue;
@@ -705,19 +728,12 @@ function splitLines_(text){
   return uniqueSorted_(String(text || "").split(/\r?\n/).map(s=>s.trim()).filter(Boolean));
 }
 
-/* =========================
-   DB (LocalStorage)
-========================= */
+/* DB */
 function loadDB(){
   try{
     const raw = localStorage.getItem(KEY);
     if(!raw){
-      return {
-        customers: [],
-        suppliers: [],
-        lists: { customers: [], suppliers: [], zones: [] },
-        settings: { strictLists: false }
-      };
+      return { customers: [], suppliers: [], lists: { customers: [], suppliers: [], zones: [] }, settings: { strictLists: false } };
     }
     const parsed = JSON.parse(raw);
     const lists = parsed.lists || {};
@@ -732,23 +748,31 @@ function loadDB(){
       },
       settings: { strictLists: !!settings.strictLists }
     };
-  } catch(e){
-    return {
-      customers: [],
-      suppliers: [],
-      lists: { customers: [], suppliers: [], zones: [] },
-      settings: { strictLists: false }
-    };
+  }catch(e){
+    return { customers: [], suppliers: [], lists: { customers: [], suppliers: [], zones: [] }, settings: { strictLists: false } };
   }
 }
-function saveDB(db){
-  localStorage.setItem(KEY, JSON.stringify(db));
-}
+function saveDB(db){ localStorage.setItem(KEY, JSON.stringify(db)); }
 let db = loadDB();
 
-/* =========================
-   Datalists (Autocomplete)
-========================= */
+/* Theme Toggle */
+const themeBtn = document.getElementById("themeToggle");
+function applyTheme(theme){
+  document.body.classList.toggle("light", theme === "light");
+  themeBtn.textContent = theme === "light" ? "Light" : "Dark";
+}
+function loadTheme(){
+  const saved = localStorage.getItem(THEME_KEY) || "dark";
+  applyTheme(saved);
+}
+themeBtn.addEventListener("click", () => {
+  const isLight = document.body.classList.contains("light");
+  const next = isLight ? "dark" : "light";
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+});
+
+/* Datalists */
 function fillDatalist_(id, values){
   const dl = document.getElementById(id);
   if(!dl) return;
@@ -763,9 +787,7 @@ function refreshListsUI_(){
   fillDatalist_("dl_zones", zones);
 }
 
-/* =========================
-   Render
-========================= */
+/* Render */
 function renderStats(){
   document.getElementById("statsPill").textContent =
     `Customers: ${db.customers.length} | Suppliers: ${db.suppliers.length} | Updated: ${new Date().toLocaleString()}`;
@@ -879,9 +901,7 @@ function renderAll(){
   refreshListsUI_();
 }
 
-/* =========================
-   Forms (Add/Edit)
-========================= */
+/* Forms */
 let editingCustomerId = null;
 let editingSupplierId = null;
 
@@ -959,9 +979,7 @@ function upsertCustomer(){
 
   db.customers.push({
     id: uid(),
-    name,
-    zone,
-    quality,
+    name, zone, quality,
     targetRate,
     lastAskedDate,
     nextFollowUpDate,
@@ -1015,9 +1033,7 @@ function upsertSupplier(){
 
   db.suppliers.push({
     id: uid(),
-    name,
-    zone,
-    quality,
+    name, zone, quality,
     rate,
     effectiveDate,
     additionalInfo,
@@ -1030,9 +1046,7 @@ function upsertSupplier(){
   renderAll();
 }
 
-/* =========================
-   Row Actions
-========================= */
+/* Row actions */
 window.deleteCustomer = function(id){
   if(!confirm("Delete this customer target?")) return;
   db.customers = db.customers.filter(x=>x.id!==id);
@@ -1092,9 +1106,7 @@ window.askedTodayCustomer = function(id){
   renderAll();
 };
 
-/* =========================
-   Matching / Business Case
-========================= */
+/* Match */
 function runMatch(){
   const zone = norm_(document.getElementById("m_zone").value).toLowerCase();
   const quality = norm_(document.getElementById("m_quality").value).toLowerCase();
@@ -1160,9 +1172,7 @@ function runMatch(){
   }
 }
 
-/* =========================
-   CSV Export
-========================= */
+/* CSV */
 function exportCustomersCSV(){
   const rows = db.customers.map(c => ({
     customer_name: c.name || "",
@@ -1212,16 +1222,9 @@ function exportSuppliersCSV(){
   toast("Exported suppliers CSV");
 }
 
-/* =========================
-   JSON Backup / Restore
-========================= */
+/* JSON Backup */
 function exportJSON(){
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    app: "Voice Targets & Routes Tracker (Local + Lists)",
-    version: 2,
-    data: db
-  };
+  const payload = { exportedAt: new Date().toISOString(), app: "Voice Targets & Routes Tracker (Local + Lists)", version: 2, data: db };
   download(`targets-backup-${todayISO()}.json`, JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
   toast("Exported JSON backup");
 }
@@ -1247,7 +1250,7 @@ function importJSONFile(file){
       clearSupplierForm();
       loadListsToUI();
       renderAll();
-    } catch(e){
+    }catch(e){
       toast("Import failed", "Could not parse JSON.");
     }
   };
@@ -1255,12 +1258,7 @@ function importJSONFile(file){
 }
 function wipeAll(){
   if(!confirm("Delete ALL stored data? This cannot be undone.")) return;
-  db = {
-    customers: [],
-    suppliers: [],
-    lists: { customers: [], suppliers: [], zones: [] },
-    settings: { strictLists: false }
-  };
+  db = { customers: [], suppliers: [], lists: { customers: [], suppliers: [], zones: [] }, settings: { strictLists: false } };
   saveDB(db);
   toast("All data deleted");
   clearCustomerForm();
@@ -1269,9 +1267,7 @@ function wipeAll(){
   renderAll();
 }
 
-/* =========================
-   Master Lists UI
-========================= */
+/* Lists UI */
 function loadListsToUI(){
   document.getElementById("list_customers").value = (db.lists.customers || []).join("\n");
   document.getElementById("list_suppliers").value = (db.lists.suppliers || []).join("\n");
@@ -1310,9 +1306,7 @@ function clearLists(){
   toast("Lists cleared");
 }
 
-/* =========================
-   Events
-========================= */
+/* Events */
 document.getElementById("c_add").addEventListener("click", upsertCustomer);
 document.getElementById("s_add").addEventListener("click", upsertSupplier);
 document.getElementById("c_clear").addEventListener("click", clearCustomerForm);
@@ -1346,10 +1340,7 @@ document.getElementById("m_clear").addEventListener("click", ()=>{
   document.getElementById("m_tbody").innerHTML = `<tr><td colspan="5" class="small">Run a match to see business cases.</td></tr>`;
 });
 
-document.getElementById("lists_load").addEventListener("click", ()=>{
-  loadListsToUI();
-  toast("Loaded lists");
-});
+document.getElementById("lists_load").addEventListener("click", ()=>{ loadListsToUI(); toast("Loaded lists"); });
 document.getElementById("lists_save").addEventListener("click", saveListsFromUI);
 document.getElementById("lists_merge").addEventListener("click", mergeListsFromData);
 document.getElementById("lists_clear").addEventListener("click", clearLists);
@@ -1359,9 +1350,8 @@ document.getElementById("strictToggle").addEventListener("change", ()=>{
   toast("Strict mode", db.settings.strictLists ? "Enabled" : "Disabled");
 });
 
-/* =========================
-   Init
-========================= */
+/* Init */
+loadTheme();
 loadListsToUI();
 refreshListsUI_();
 renderAll();
