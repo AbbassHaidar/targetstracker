@@ -1,0 +1,1371 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Voice Targets & Routes Tracker (Local + Lists)</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#111b2e;
+      --text:#e6edf7;
+      --muted:#a9b4c7;
+      --line:rgba(255,255,255,.10);
+      --accent:#7aa2ff;
+      --good:#39d98a;
+      --warn:#ffcc66;
+      --bad:#ff6b6b;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans";
+      background: radial-gradient(1200px 700px at 20% 10%, #132041 0%, var(--bg) 55%);
+      color:var(--text);
+    }
+    header{
+      padding:22px 18px;
+      border-bottom:1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0));
+      position:sticky; top:0; backdrop-filter: blur(8px);
+      z-index: 5;
+    }
+    .wrap{max-width:1200px; margin:0 auto; padding:0 12px;}
+    .title{
+      display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
+    }
+    h1{margin:0; font-size:18px; letter-spacing:.2px;}
+    .subtitle{margin:6px 0 0; color:var(--muted); font-size:13px;}
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px; border:1px solid var(--line);
+      border-radius:999px; background:rgba(255,255,255,.03);
+      color:var(--muted); font-size:12px;
+      white-space:nowrap;
+    }
+
+    /* NEW: stacked layout */
+    .stack{
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      padding:16px 0 22px;
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    /* NEW: collapsible cards */
+    details.card{ }
+    summary.head{
+      padding:14px 14px 10px;
+      border-bottom:1px solid var(--line);
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      background: rgba(0,0,0,.12);
+      cursor:pointer;
+      user-select:none;
+      list-style:none;
+    }
+    summary.head::-webkit-details-marker{ display:none; }
+    summary.head .headLeft{
+      display:flex; flex-direction:column; gap:2px;
+    }
+    summary.head h2{
+      margin:0;
+      font-size:14px;
+      letter-spacing:.3px;
+    }
+    .chev{
+      width:32px; height:32px;
+      display:grid; place-items:center;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      transition: transform .15s ease;
+      flex: 0 0 auto;
+    }
+    details[open] .chev{ transform: rotate(180deg); }
+    .cardContent{ padding:0; } /* holds old structure inside */
+
+    .card .body{padding:14px;}
+    .row{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .row3{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:10px;
+    }
+    @media (max-width: 680px){
+      .row, .row3{grid-template-columns:1fr;}
+    }
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    input, select, textarea{
+      width:100%;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(15, 23, 42, .65);
+      color: var(--text);
+      outline:none;
+    }
+    textarea{min-height:74px; resize:vertical}
+    input:focus, select:focus, textarea:focus{
+      border-color: rgba(122,162,255,.55);
+      box-shadow: 0 0 0 3px rgba(122,162,255,.15);
+    }
+    .actions{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:flex-end;
+      margin-top:12px;
+    }
+    button{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      cursor:pointer;
+      transition: transform .04s ease, background .2s ease, border-color .2s ease;
+    }
+    button:hover{background: rgba(255,255,255,.08);}
+    button:active{transform: translateY(1px);}
+    button:disabled{opacity:.6; cursor:not-allowed;}
+    .primary{
+      border-color: rgba(122,162,255,.55);
+      background: rgba(122,162,255,.18);
+    }
+    .danger{
+      border-color: rgba(255,107,107,.55);
+      background: rgba(255,107,107,.12);
+    }
+    .mutedBtn{ color: var(--muted); }
+    .toolbar{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      background: rgba(0,0,0,.10);
+    }
+    .toolbar .left, .toolbar .right{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    }
+    .small{
+      font-size:12px; color:var(--muted);
+    }
+    .tableWrap{padding: 0 14px 14px; overflow:auto;}
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      overflow:hidden;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background: rgba(0,0,0,.08);
+    }
+    th, td{
+      padding:10px 10px;
+      border-bottom:1px solid var(--line);
+      vertical-align:top;
+      font-size:12.5px;
+    }
+    th{
+      text-align:left;
+      color:var(--muted);
+      background: rgba(255,255,255,.03);
+    }
+    tr:last-child td{border-bottom:none;}
+    .tag{
+      display:inline-flex;
+      padding:2px 8px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      font-size:11px;
+      color:var(--muted);
+      background: rgba(255,255,255,.03);
+      margin-right:6px;
+      white-space:nowrap;
+    }
+    .rate{
+      font-variant-numeric: tabular-nums;
+      font-weight:600;
+    }
+    .ok{color:var(--good)}
+    .warn{color:var(--warn)}
+    .bad{color:var(--bad)}
+    .miniActions{
+      display:flex; gap:8px; flex-wrap:wrap;
+    }
+    .miniActions button{
+      padding:6px 9px;
+      border-radius:10px;
+      font-size:12px;
+    }
+    .footerNote{
+      padding: 0 14px 14px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height:1.35;
+    }
+    .divider{
+      height:1px; background:var(--line); margin:14px 0;
+    }
+    .toast{
+      position:fixed; right:16px; bottom:16px;
+      background: rgba(17,27,46,.92);
+      border:1px solid var(--line);
+      border-radius: 14px;
+      padding:10px 12px;
+      color: var(--text);
+      box-shadow: var(--shadow);
+      max-width: 460px;
+      display:none;
+      z-index: 10;
+    }
+    .toast .t{font-size:13px; margin:0;}
+    .toast .s{font-size:12px; color: var(--muted); margin:4px 0 0; white-space:pre-wrap;}
+    .fileInput{ display:none; }
+    .switch{
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background: rgba(255,255,255,.03);
+    }
+    .switch input{width:auto}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="wrap">
+    <div class="title">
+      <div>
+        <h1>Voice Targets & Supplier Routes Tracker</h1>
+        <div class="subtitle">Local-only (offline) tracker with master lists for consistent naming.</div>
+      </div>
+      <div class="pill" id="statsPill">Loading…</div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="stack">
+
+    <!-- Customer Targets (Collapsible) -->
+    <details class="card" open id="sec_customers">
+      <summary class="head">
+        <div class="headLeft">
+          <h2>Customer Targets</h2>
+          <div class="small">Storage: LocalStorage</div>
+        </div>
+        <div class="chev">▾</div>
+      </summary>
+
+      <div class="cardContent">
+        <div class="body">
+          <div class="row">
+            <div>
+              <label>Customer Name</label>
+              <input id="c_name" list="dl_customers" placeholder="Select or type customer name" />
+              <datalist id="dl_customers"></datalist>
+            </div>
+            <div>
+              <label>Zone</label>
+              <input id="c_zone" list="dl_zones" placeholder="Select or type zone" />
+              <datalist id="dl_zones"></datalist>
+            </div>
+          </div>
+
+          <div class="row3" style="margin-top:10px;">
+            <div>
+              <label>Quality</label>
+              <select id="c_quality">
+                <option value="">Select…</option>
+                <option>CLI</option>
+                <option>NCLI</option>
+                <option>CC</option>
+                <option>TDM</option>
+                <option>OTP</option>
+                <option>Premium</option>
+                <option>Standard</option>
+              </select>
+            </div>
+            <div>
+              <label>Target Rate (USD)</label>
+              <input id="c_rate" placeholder="e.g., 0.055" inputmode="decimal" />
+            </div>
+            <div>
+              <label>Last Asked Date</label>
+              <input id="c_lastAsked" type="date" />
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px;">
+            <div>
+              <label>Next Follow-up Date (optional)</label>
+              <input id="c_nextFollow" type="date" />
+            </div>
+            <div>
+              <label>Status</label>
+              <select id="c_status">
+                <option value="Open">Open</option>
+                <option value="In Discussion">In Discussion</option>
+                <option value="Quoted">Quoted</option>
+                <option value="Agreed">Agreed</option>
+                <option value="Closed / Won">Closed / Won</option>
+                <option value="Closed / Lost">Closed / Lost</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label>Additional Info</label>
+            <textarea id="c_info" placeholder="Notes: volumes, restrictions, preferences, timestamps, etc."></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="mutedBtn" id="c_clear">Clear</button>
+            <button class="primary" id="c_add">Add Customer Target</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="left">
+            <input id="c_search" placeholder="Search customers (name/zone/notes)..." />
+            <select id="c_filterQuality">
+              <option value="">All qualities</option>
+              <option>CLI</option><option>NCLI</option><option>CC</option><option>TDM</option>
+              <option>OTP</option><option>Premium</option><option>Standard</option>
+            </select>
+            <input id="c_filterZone" placeholder="Filter zone..." />
+          </div>
+          <div class="right">
+            <button id="c_exportCsv">Export CSV</button>
+          </div>
+        </div>
+
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:18%;">Customer</th>
+                <th style="width:18%;">Zone</th>
+                <th style="width:10%;">Quality</th>
+                <th style="width:10%;">Target</th>
+                <th style="width:14%;">Dates</th>
+                <th>Additional Info</th>
+                <th style="width:16%;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="c_tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="footerNote">
+          Tip: Use “Asked Today” to stamp the latest request date for a customer target.
+        </div>
+      </div>
+    </details>
+
+    <!-- Supplier Routes (Collapsible) -->
+    <details class="card" open id="sec_suppliers">
+      <summary class="head">
+        <div class="headLeft">
+          <h2>Supplier Routes</h2>
+          <div class="small">Storage: LocalStorage</div>
+        </div>
+        <div class="chev">▾</div>
+      </summary>
+
+      <div class="cardContent">
+        <div class="body">
+          <div class="row">
+            <div>
+              <label>Supplier Name</label>
+              <input id="s_name" list="dl_suppliers" placeholder="Select or type supplier name" />
+              <datalist id="dl_suppliers"></datalist>
+            </div>
+            <div>
+              <label>Zone</label>
+              <input id="s_zone" list="dl_zones" placeholder="Select or type zone" />
+            </div>
+          </div>
+
+          <div class="row3" style="margin-top:10px;">
+            <div>
+              <label>Quality</label>
+              <select id="s_quality">
+                <option value="">Select…</option>
+                <option>CLI</option>
+                <option>NCLI</option>
+                <option>CC</option>
+                <option>TDM</option>
+                <option>OTP</option>
+                <option>Premium</option>
+                <option>Standard</option>
+              </select>
+            </div>
+            <div>
+              <label>Rate (USD)</label>
+              <input id="s_rate" placeholder="e.g., 0.063" inputmode="decimal" />
+            </div>
+            <div>
+              <label>Effective Date (optional)</label>
+              <input id="s_effective" type="date" />
+            </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label>Additional Info</label>
+            <textarea id="s_info" placeholder="Notes: direct/indirect, caps, CLI stability, terms, etc."></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="mutedBtn" id="s_clear">Clear</button>
+            <button class="primary" id="s_add">Add Supplier Route</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="left">
+            <input id="s_search" placeholder="Search suppliers (name/zone/notes)..." />
+            <select id="s_filterQuality">
+              <option value="">All qualities</option>
+              <option>CLI</option><option>NCLI</option><option>CC</option><option>TDM</option>
+              <option>OTP</option><option>Premium</option><option>Standard</option>
+            </select>
+            <input id="s_filterZone" placeholder="Filter zone..." />
+          </div>
+          <div class="right">
+            <button id="s_exportCsv">Export CSV</button>
+          </div>
+        </div>
+
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:18%;">Supplier</th>
+                <th style="width:18%;">Zone</th>
+                <th style="width:10%;">Quality</th>
+                <th style="width:10%;">Rate</th>
+                <th style="width:14%;">Effective</th>
+                <th>Additional Info</th>
+                <th style="width:16%;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="s_tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Matching / Business Case Helper -->
+        <div class="body" style="padding-top:0;">
+          <div class="head" style="border:0; background:transparent; padding:0 0 10px;">
+            <h2>Quick Match (Business Case)</h2>
+            <div class="small">Match by Zone + Quality</div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>Zone</label>
+              <input id="m_zone" list="dl_zones" placeholder="Type a zone to match (e.g., Nigeria MTN)" />
+            </div>
+            <div>
+              <label>Quality</label>
+              <select id="m_quality">
+                <option value="">All qualities</option>
+                <option>CLI</option><option>NCLI</option><option>CC</option><option>TDM</option>
+                <option>OTP</option><option>Premium</option><option>Standard</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="actions" style="justify-content:flex-start;">
+            <button class="primary" id="m_run">Run Match</button>
+            <button class="mutedBtn" id="m_clear">Clear</button>
+          </div>
+
+          <div class="tableWrap" style="padding:0;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:30%;">Customer Target</th>
+                  <th style="width:30%;">Supplier Route</th>
+                  <th style="width:12%;">Target</th>
+                  <th style="width:12%;">Supplier</th>
+                  <th style="width:16%;">Delta</th>
+                </tr>
+              </thead>
+              <tbody id="m_tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="footerNote" style="padding:10px 0 0;">
+            Delta = Supplier Rate − Customer Target. Negative delta indicates supplier is cheaper than target.
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- Master Lists (Collapsible) -->
+    <details class="card" open id="sec_lists">
+      <summary class="head">
+        <div class="headLeft">
+          <h2>Master Lists (Consistency)</h2>
+          <div class="small">Autocomplete + Optional strict mode</div>
+        </div>
+        <div class="chev">▾</div>
+      </summary>
+
+      <div class="cardContent">
+        <div class="body">
+          <div class="switch">
+            <input type="checkbox" id="strictToggle" />
+            <div>
+              <div><strong>Strict mode</strong></div>
+              <div class="small">When enabled, Customer/Supplier/Zone must exist in the master lists (prevents spelling variations).</div>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:12px;">
+            <div>
+              <label>Customers list (one per line)</label>
+              <textarea id="list_customers" placeholder="e.g. Lank&#10;Telwhiz&#10;China Mobile"></textarea>
+            </div>
+            <div>
+              <label>Suppliers list (one per line)</label>
+              <textarea id="list_suppliers" placeholder="e.g. VoxBridge&#10;Gerax&#10;Advance Com"></textarea>
+            </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label>Zones list (one per line)</label>
+            <textarea id="list_zones" placeholder="e.g. Guatemala Comcel&#10;Nigeria MTN TDM&#10;EU CC CLI"></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="mutedBtn" id="lists_load">Load from DB</button>
+            <button class="primary" id="lists_save">Save Lists</button>
+            <button id="lists_merge">Merge from existing data</button>
+            <button class="danger" id="lists_clear">Clear Lists</button>
+          </div>
+
+          <div class="footerNote">
+            Notes:
+            <ul>
+              <li>Autocomplete always works.</li>
+              <li>Strict mode blocks new values not present in your lists.</li>
+              <li>“Merge from existing data” will add any names/zones already used into the lists.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- Backup / Restore (Collapsible) -->
+    <details class="card" id="sec_backup">
+      <summary class="head">
+        <div class="headLeft">
+          <h2>Backup / Restore</h2>
+          <div class="small">Recommended for safety</div>
+        </div>
+        <div class="chev">▾</div>
+      </summary>
+
+      <div class="cardContent">
+        <div class="toolbar">
+          <div class="left">
+            <button id="exportJson" class="primary">Export JSON Backup</button>
+            <button id="importJson">Import JSON Backup</button>
+            <input class="fileInput" id="fileInput" type="file" accept="application/json" />
+          </div>
+          <div class="right">
+            <button id="wipeAll" class="danger">Delete All Data</button>
+          </div>
+        </div>
+        <div class="footerNote">
+          Recommendation: Export a JSON backup weekly or before major edits.
+          <div class="small mono">Storage key: voice_targets_routes_v2_lists</div>
+        </div>
+      </div>
+    </details>
+
+  </div>
+</main>
+
+<div class="toast" id="toast">
+  <p class="t" id="toastTitle"></p>
+  <p class="s" id="toastSub"></p>
+</div>
+
+<script>
+/* =========================
+   Storage Key
+========================= */
+const KEY = "voice_targets_routes_v2_lists";
+
+/* =========================
+   Helpers
+========================= */
+function todayISO(){
+  const d = new Date();
+  const off = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - off*60*1000);
+  return local.toISOString().slice(0,10);
+}
+function uid(){
+  return Math.random().toString(16).slice(2) + "-" + Date.now().toString(16);
+}
+function norm_(s){ return (s ?? "").toString().trim(); }
+function escapeHtml(str){
+  return (str ?? "").toString()
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+function toNumberMaybe(v){
+  const x = (v ?? "").toString().trim();
+  if(!x) return null;
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+}
+function toast(title, sub=""){
+  const t = document.getElementById("toast");
+  document.getElementById("toastTitle").textContent = title;
+  document.getElementById("toastSub").textContent = sub;
+  t.style.display = "block";
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=> t.style.display="none", 2600);
+}
+function download(filename, content, mime){
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 800);
+}
+function csvEscape(val){
+  const s = (val ?? "").toString();
+  if (/[,"\n]/.test(s)) return `"${s.replaceAll('"','""')}"`;
+  return s;
+}
+function toCSV(rows, headers){
+  const head = headers.map(h => csvEscape(h.label)).join(",") + "\n";
+  const body = rows.map(r => headers.map(h => csvEscape(r[h.key])).join(",")).join("\n");
+  return head + body + "\n";
+}
+function rateBadge(delta){
+  if (delta === null) return `<span class="tag">N/A</span>`;
+  const cls = delta < 0 ? "ok" : (delta <= 0.002 ? "warn" : "bad");
+  const label = delta < 0 ? "Good" : (delta <= 0.002 ? "Tight" : "High");
+  return `<span class="tag ${cls}">${label}</span>`;
+}
+function uniqueSorted_(arr){
+  const out = [];
+  const seen = new Set();
+  for(const x of arr){
+    const v = norm_(x);
+    if(!v) continue;
+    const k = v.toLowerCase();
+    if(seen.has(k)) continue;
+    seen.add(k);
+    out.push(v);
+  }
+  out.sort((a,b)=>a.localeCompare(b));
+  return out;
+}
+function inList_(value, list){
+  const v = norm_(value).toLowerCase();
+  return list.some(x => norm_(x).toLowerCase() === v);
+}
+function splitLines_(text){
+  return uniqueSorted_(String(text || "").split(/\r?\n/).map(s=>s.trim()).filter(Boolean));
+}
+
+/* =========================
+   DB (LocalStorage)
+========================= */
+function loadDB(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw){
+      return {
+        customers: [],
+        suppliers: [],
+        lists: { customers: [], suppliers: [], zones: [] },
+        settings: { strictLists: false }
+      };
+    }
+    const parsed = JSON.parse(raw);
+    const lists = parsed.lists || {};
+    const settings = parsed.settings || {};
+    return {
+      customers: Array.isArray(parsed.customers) ? parsed.customers : [],
+      suppliers: Array.isArray(parsed.suppliers) ? parsed.suppliers : [],
+      lists: {
+        customers: Array.isArray(lists.customers) ? lists.customers : [],
+        suppliers: Array.isArray(lists.suppliers) ? lists.suppliers : [],
+        zones: Array.isArray(lists.zones) ? lists.zones : []
+      },
+      settings: { strictLists: !!settings.strictLists }
+    };
+  } catch(e){
+    return {
+      customers: [],
+      suppliers: [],
+      lists: { customers: [], suppliers: [], zones: [] },
+      settings: { strictLists: false }
+    };
+  }
+}
+function saveDB(db){
+  localStorage.setItem(KEY, JSON.stringify(db));
+}
+let db = loadDB();
+
+/* =========================
+   Datalists (Autocomplete)
+========================= */
+function fillDatalist_(id, values){
+  const dl = document.getElementById(id);
+  if(!dl) return;
+  dl.innerHTML = values.map(v => `<option value="${escapeHtml(v)}"></option>`).join("");
+}
+function refreshListsUI_(){
+  const customers = uniqueSorted_([...(db.lists.customers||[]), ...db.customers.map(c=>c.name)]);
+  const suppliers = uniqueSorted_([...(db.lists.suppliers||[]), ...db.suppliers.map(s=>s.name)]);
+  const zones     = uniqueSorted_([...(db.lists.zones||[]), ...db.customers.map(c=>c.zone), ...db.suppliers.map(s=>s.zone)]);
+  fillDatalist_("dl_customers", customers);
+  fillDatalist_("dl_suppliers", suppliers);
+  fillDatalist_("dl_zones", zones);
+}
+
+/* =========================
+   Render
+========================= */
+function renderStats(){
+  document.getElementById("statsPill").textContent =
+    `Customers: ${db.customers.length} | Suppliers: ${db.suppliers.length} | Updated: ${new Date().toLocaleString()}`;
+}
+function matchText(item){
+  return ([
+    item.name, item.zone, item.quality, item.additionalInfo, item.status,
+    item.targetRate, item.rate, item.lastAskedDate, item.createdDate,
+    item.nextFollowUpDate, item.effectiveDate
+  ].join(" ").toLowerCase());
+}
+function filterList(list, search, zone, quality){
+  const s = (search ?? "").trim().toLowerCase();
+  const z = (zone ?? "").trim().toLowerCase();
+  const q = (quality ?? "").trim().toLowerCase();
+  return list.filter(it => {
+    const t = matchText(it);
+    if (s && !t.includes(s)) return false;
+    if (z && !(it.zone ?? "").toLowerCase().includes(z)) return false;
+    if (q && (it.quality ?? "").toLowerCase() !== q) return false;
+    return true;
+  });
+}
+function renderCustomers(){
+  const tb = document.getElementById("c_tbody");
+  const list = filterList(
+    db.customers,
+    document.getElementById("c_search").value,
+    document.getElementById("c_filterZone").value,
+    document.getElementById("c_filterQuality").value
+  );
+
+  tb.innerHTML = list
+    .slice()
+    .sort((a,b)=> (b.createdDate ?? "").localeCompare(a.createdDate ?? ""))
+    .map(c => {
+      const target = (c.targetRate ?? null);
+      const targetTxt = target === null ? "" : Number(target).toFixed(6).replace(/0+$/,"").replace(/\.$/,"");
+      const dates = `
+        <div><span class="tag">Created</span> ${escapeHtml(c.createdDate || "")}</div>
+        <div style="margin-top:4px;"><span class="tag">Asked</span> ${escapeHtml(c.lastAskedDate || "")}</div>
+        ${c.nextFollowUpDate ? `<div style="margin-top:4px;"><span class="tag">Follow</span> ${escapeHtml(c.nextFollowUpDate)}</div>` : ""}
+        <div style="margin-top:4px;"><span class="tag">Status</span> ${escapeHtml(c.status || "")}</div>
+      `;
+      return `
+        <tr>
+          <td>${escapeHtml(c.name)}</td>
+          <td>${escapeHtml(c.zone)}</td>
+          <td>${escapeHtml(c.quality)}</td>
+          <td class="rate">${escapeHtml(targetTxt)}</td>
+          <td>${dates}</td>
+          <td>${escapeHtml(c.additionalInfo || "")}</td>
+          <td>
+            <div class="miniActions">
+              <button onclick="askedTodayCustomer('${c.id}')">Asked Today</button>
+              <button onclick="editCustomer('${c.id}')">Edit</button>
+              <button class="danger" onclick="deleteCustomer('${c.id}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  if(!tb.innerHTML){
+    tb.innerHTML = `<tr><td colspan="7" class="small">No customer targets found.</td></tr>`;
+  }
+}
+function renderSuppliers(){
+  const tb = document.getElementById("s_tbody");
+  const list = filterList(
+    db.suppliers,
+    document.getElementById("s_search").value,
+    document.getElementById("s_filterZone").value,
+    document.getElementById("s_filterQuality").value
+  );
+
+  tb.innerHTML = list
+    .slice()
+    .sort((a,b)=> (b.createdDate ?? "").localeCompare(a.createdDate ?? ""))
+    .map(s => {
+      const rate = (s.rate ?? null);
+      const rateTxt = rate === null ? "" : Number(rate).toFixed(6).replace(/0+$/,"").replace(/\.$/,"");
+      return `
+        <tr>
+          <td>${escapeHtml(s.name)}</td>
+          <td>${escapeHtml(s.zone)}</td>
+          <td>${escapeHtml(s.quality)}</td>
+          <td class="rate">${escapeHtml(rateTxt)}</td>
+          <td>${escapeHtml(s.effectiveDate || "")}</td>
+          <td>${escapeHtml(s.additionalInfo || "")}</td>
+          <td>
+            <div class="miniActions">
+              <button onclick="editSupplier('${s.id}')">Edit</button>
+              <button class="danger" onclick="deleteSupplier('${s.id}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  if(!tb.innerHTML){
+    tb.innerHTML = `<tr><td colspan="7" class="small">No supplier routes found.</td></tr>`;
+  }
+}
+function renderAll(){
+  renderStats();
+  renderCustomers();
+  renderSuppliers();
+  refreshListsUI_();
+}
+
+/* =========================
+   Forms (Add/Edit)
+========================= */
+let editingCustomerId = null;
+let editingSupplierId = null;
+
+function clearCustomerForm(){
+  editingCustomerId = null;
+  ["c_name","c_zone","c_rate","c_lastAsked","c_nextFollow","c_info"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("c_quality").value="";
+  document.getElementById("c_status").value="Open";
+  document.getElementById("c_add").textContent = "Add Customer Target";
+}
+function clearSupplierForm(){
+  editingSupplierId = null;
+  ["s_name","s_zone","s_rate","s_effective","s_info"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("s_quality").value="";
+  document.getElementById("s_add").textContent = "Add Supplier Route";
+}
+
+function validateStrict_(name, zone, isCustomer){
+  if(!db.settings.strictLists) return true;
+
+  const listNames = isCustomer ? (db.lists.customers || []) : (db.lists.suppliers || []);
+  const listZones = db.lists.zones || [];
+
+  if(listNames.length && !inList_(name, listNames)){
+    toast("Strict mode block", (isCustomer ? "Customer" : "Supplier") + " name must exist in your master list.");
+    return false;
+  }
+  if(listZones.length && !inList_(zone, listZones)){
+    toast("Strict mode block", "Zone must exist in your master Zones list.");
+    return false;
+  }
+  return true;
+}
+
+function upsertCustomer(){
+  const name = norm_(document.getElementById("c_name").value);
+  const zone = norm_(document.getElementById("c_zone").value);
+  const quality = norm_(document.getElementById("c_quality").value);
+  const targetRate = toNumberMaybe(document.getElementById("c_rate").value);
+  const lastAskedDate = document.getElementById("c_lastAsked").value || "";
+  const nextFollowUpDate = document.getElementById("c_nextFollow").value || "";
+  const status = document.getElementById("c_status").value || "Open";
+  const additionalInfo = norm_(document.getElementById("c_info").value);
+
+  if(!name || !zone || !quality){
+    toast("Missing required fields", "Customer Name, Zone, and Quality are mandatory.");
+    return;
+  }
+  if (document.getElementById("c_rate").value.trim() && targetRate === null){
+    toast("Invalid rate", "Target Rate must be numeric (e.g., 0.055).");
+    return;
+  }
+  if(!validateStrict_(name, zone, true)) return;
+
+  if(editingCustomerId){
+    const idx = db.customers.findIndex(x=>x.id===editingCustomerId);
+    if(idx >= 0){
+      db.customers[idx] = {
+        ...db.customers[idx],
+        name, zone, quality,
+        targetRate,
+        lastAskedDate,
+        nextFollowUpDate,
+        status,
+        additionalInfo,
+        updatedAt: new Date().toISOString()
+      };
+      saveDB(db);
+      toast("Customer updated");
+      clearCustomerForm();
+      renderAll();
+      return;
+    }
+  }
+
+  db.customers.push({
+    id: uid(),
+    name,
+    zone,
+    quality,
+    targetRate,
+    lastAskedDate,
+    nextFollowUpDate,
+    status,
+    additionalInfo,
+    createdDate: todayISO(),
+    updatedAt: new Date().toISOString()
+  });
+  saveDB(db);
+  toast("Customer target added");
+  clearCustomerForm();
+  renderAll();
+}
+
+function upsertSupplier(){
+  const name = norm_(document.getElementById("s_name").value);
+  const zone = norm_(document.getElementById("s_zone").value);
+  const quality = norm_(document.getElementById("s_quality").value);
+  const rate = toNumberMaybe(document.getElementById("s_rate").value);
+  const effectiveDate = document.getElementById("s_effective").value || "";
+  const additionalInfo = norm_(document.getElementById("s_info").value);
+
+  if(!name || !zone || !quality){
+    toast("Missing required fields", "Supplier Name, Zone, and Quality are mandatory.");
+    return;
+  }
+  if (document.getElementById("s_rate").value.trim() && rate === null){
+    toast("Invalid rate", "Rate must be numeric (e.g., 0.063).");
+    return;
+  }
+  if(!validateStrict_(name, zone, false)) return;
+
+  if(editingSupplierId){
+    const idx = db.suppliers.findIndex(x=>x.id===editingSupplierId);
+    if(idx >= 0){
+      db.suppliers[idx] = {
+        ...db.suppliers[idx],
+        name, zone, quality,
+        rate,
+        effectiveDate,
+        additionalInfo,
+        updatedAt: new Date().toISOString()
+      };
+      saveDB(db);
+      toast("Supplier updated");
+      clearSupplierForm();
+      renderAll();
+      return;
+    }
+  }
+
+  db.suppliers.push({
+    id: uid(),
+    name,
+    zone,
+    quality,
+    rate,
+    effectiveDate,
+    additionalInfo,
+    createdDate: todayISO(),
+    updatedAt: new Date().toISOString()
+  });
+  saveDB(db);
+  toast("Supplier route added");
+  clearSupplierForm();
+  renderAll();
+}
+
+/* =========================
+   Row Actions
+========================= */
+window.deleteCustomer = function(id){
+  if(!confirm("Delete this customer target?")) return;
+  db.customers = db.customers.filter(x=>x.id!==id);
+  saveDB(db);
+  toast("Customer deleted");
+  if(editingCustomerId === id) clearCustomerForm();
+  renderAll();
+};
+window.deleteSupplier = function(id){
+  if(!confirm("Delete this supplier route?")) return;
+  db.suppliers = db.suppliers.filter(x=>x.id!==id);
+  saveDB(db);
+  toast("Supplier deleted");
+  if(editingSupplierId === id) clearSupplierForm();
+  renderAll();
+};
+window.editCustomer = function(id){
+  const c = db.customers.find(x=>x.id===id);
+  if(!c) return;
+  editingCustomerId = id;
+
+  document.getElementById("c_name").value = c.name || "";
+  document.getElementById("c_zone").value = c.zone || "";
+  document.getElementById("c_quality").value = c.quality || "";
+  document.getElementById("c_rate").value = (c.targetRate ?? "");
+  document.getElementById("c_lastAsked").value = c.lastAskedDate || "";
+  document.getElementById("c_nextFollow").value = c.nextFollowUpDate || "";
+  document.getElementById("c_status").value = c.status || "Open";
+  document.getElementById("c_info").value = c.additionalInfo || "";
+
+  document.getElementById("c_add").textContent = "Save Customer Target";
+  window.scrollTo({top:0, behavior:"smooth"});
+  toast("Editing customer", c.name);
+};
+window.editSupplier = function(id){
+  const s = db.suppliers.find(x=>x.id===id);
+  if(!s) return;
+  editingSupplierId = id;
+
+  document.getElementById("s_name").value = s.name || "";
+  document.getElementById("s_zone").value = s.zone || "";
+  document.getElementById("s_quality").value = s.quality || "";
+  document.getElementById("s_rate").value = (s.rate ?? "");
+  document.getElementById("s_effective").value = s.effectiveDate || "";
+  document.getElementById("s_info").value = s.additionalInfo || "";
+
+  document.getElementById("s_add").textContent = "Save Supplier Route";
+  toast("Editing supplier", s.name);
+};
+window.askedTodayCustomer = function(id){
+  const idx = db.customers.findIndex(x=>x.id===id);
+  if(idx<0) return;
+  db.customers[idx].lastAskedDate = todayISO();
+  db.customers[idx].updatedAt = new Date().toISOString();
+  saveDB(db);
+  toast("Updated last asked date", db.customers[idx].name);
+  renderAll();
+};
+
+/* =========================
+   Matching / Business Case
+========================= */
+function runMatch(){
+  const zone = norm_(document.getElementById("m_zone").value).toLowerCase();
+  const quality = norm_(document.getElementById("m_quality").value).toLowerCase();
+
+  const cust = db.customers.filter(c => {
+    const zOk = !zone || (c.zone || "").toLowerCase().includes(zone);
+    const qOk = !quality || (c.quality || "").toLowerCase() === quality;
+    return zOk && qOk;
+  });
+
+  const supp = db.suppliers.filter(s => {
+    const zOk = !zone || (s.zone || "").toLowerCase().includes(zone);
+    const qOk = !quality || (s.quality || "").toLowerCase() === quality;
+    return zOk && qOk;
+  });
+
+  const rows = [];
+  for(const c of cust){
+    for(const s of supp){
+      if(quality && (c.quality||"").toLowerCase() !== (s.quality||"").toLowerCase()) continue;
+      const t = (c.targetRate ?? null);
+      const r = (s.rate ?? null);
+      const delta = (t !== null && r !== null) ? (r - t) : null;
+      rows.push({c, s, t, r, delta});
+    }
+  }
+
+  rows.sort((a,b)=>{
+    const ad = a.delta ?? 9999;
+    const bd = b.delta ?? 9999;
+    return ad - bd;
+  });
+
+  const tb = document.getElementById("m_tbody");
+  tb.innerHTML = rows.slice(0, 200).map(x=>{
+    const t = x.t === null ? "" : Number(x.t).toFixed(6).replace(/0+$/,"").replace(/\.$/,"");
+    const r = x.r === null ? "" : Number(x.r).toFixed(6).replace(/0+$/,"").replace(/\.$/,"");
+    const d = x.delta === null ? "" : (x.delta >= 0 ? "+" : "") + x.delta.toFixed(6).replace(/0+$/,"").replace(/\.$/,"");
+    return `
+      <tr>
+        <td>
+          <div><strong>${escapeHtml(x.c.name)}</strong></div>
+          <div class="small">${escapeHtml(x.c.zone)} · ${escapeHtml(x.c.quality)}</div>
+        </td>
+        <td>
+          <div><strong>${escapeHtml(x.s.name)}</strong></div>
+          <div class="small">${escapeHtml(x.s.zone)} · ${escapeHtml(x.s.quality)}</div>
+        </td>
+        <td class="rate">${escapeHtml(t)}</td>
+        <td class="rate">${escapeHtml(r)}</td>
+        <td class="rate">
+          ${rateBadge(x.delta)}
+          ${escapeHtml(d)}
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  if(!tb.innerHTML){
+    tb.innerHTML = `<tr><td colspan="5" class="small">No matches found for the selected zone/quality.</td></tr>`;
+  } else {
+    toast("Match complete", `Found ${rows.length} pair(s). Showing up to 200.`);
+  }
+}
+
+/* =========================
+   CSV Export
+========================= */
+function exportCustomersCSV(){
+  const rows = db.customers.map(c => ({
+    customer_name: c.name || "",
+    zone: c.zone || "",
+    quality: c.quality || "",
+    target_rate: c.targetRate ?? "",
+    created_date: c.createdDate || "",
+    last_asked_date: c.lastAskedDate || "",
+    next_followup_date: c.nextFollowUpDate || "",
+    status: c.status || "",
+    additional_info: c.additionalInfo || ""
+  }));
+  const headers = [
+    {key:"customer_name", label:"customer_name"},
+    {key:"zone", label:"zone"},
+    {key:"quality", label:"quality"},
+    {key:"target_rate", label:"target_rate"},
+    {key:"created_date", label:"created_date"},
+    {key:"last_asked_date", label:"last_asked_date"},
+    {key:"next_followup_date", label:"next_followup_date"},
+    {key:"status", label:"status"},
+    {key:"additional_info", label:"additional_info"},
+  ];
+  download(`customers-targets-${todayISO()}.csv`, toCSV(rows, headers), "text/csv;charset=utf-8");
+  toast("Exported customers CSV");
+}
+function exportSuppliersCSV(){
+  const rows = db.suppliers.map(s => ({
+    supplier_name: s.name || "",
+    zone: s.zone || "",
+    quality: s.quality || "",
+    rate: s.rate ?? "",
+    created_date: s.createdDate || "",
+    effective_date: s.effectiveDate || "",
+    additional_info: s.additionalInfo || ""
+  }));
+  const headers = [
+    {key:"supplier_name", label:"supplier_name"},
+    {key:"zone", label:"zone"},
+    {key:"quality", label:"quality"},
+    {key:"rate", label:"rate"},
+    {key:"created_date", label:"created_date"},
+    {key:"effective_date", label:"effective_date"},
+    {key:"additional_info", label:"additional_info"},
+  ];
+  download(`suppliers-routes-${todayISO()}.csv`, toCSV(rows, headers), "text/csv;charset=utf-8");
+  toast("Exported suppliers CSV");
+}
+
+/* =========================
+   JSON Backup / Restore
+========================= */
+function exportJSON(){
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    app: "Voice Targets & Routes Tracker (Local + Lists)",
+    version: 2,
+    data: db
+  };
+  download(`targets-backup-${todayISO()}.json`, JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
+  toast("Exported JSON backup");
+}
+function importJSONFile(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+      const data = parsed.data ?? parsed;
+      if(!data || !Array.isArray(data.customers) || !Array.isArray(data.suppliers)){
+        toast("Invalid backup file", "Expected customers[] and suppliers[].");
+        return;
+      }
+      db = {
+        customers: data.customers,
+        suppliers: data.suppliers,
+        lists: data.lists || { customers: [], suppliers: [], zones: [] },
+        settings: data.settings || { strictLists: false }
+      };
+      saveDB(db);
+      toast("Backup imported", "Data restored successfully.");
+      clearCustomerForm();
+      clearSupplierForm();
+      loadListsToUI();
+      renderAll();
+    } catch(e){
+      toast("Import failed", "Could not parse JSON.");
+    }
+  };
+  reader.readAsText(file);
+}
+function wipeAll(){
+  if(!confirm("Delete ALL stored data? This cannot be undone.")) return;
+  db = {
+    customers: [],
+    suppliers: [],
+    lists: { customers: [], suppliers: [], zones: [] },
+    settings: { strictLists: false }
+  };
+  saveDB(db);
+  toast("All data deleted");
+  clearCustomerForm();
+  clearSupplierForm();
+  loadListsToUI();
+  renderAll();
+}
+
+/* =========================
+   Master Lists UI
+========================= */
+function loadListsToUI(){
+  document.getElementById("list_customers").value = (db.lists.customers || []).join("\n");
+  document.getElementById("list_suppliers").value = (db.lists.suppliers || []).join("\n");
+  document.getElementById("list_zones").value = (db.lists.zones || []).join("\n");
+  document.getElementById("strictToggle").checked = !!db.settings.strictLists;
+}
+function saveListsFromUI(){
+  const c = splitLines_(document.getElementById("list_customers").value);
+  const s = splitLines_(document.getElementById("list_suppliers").value);
+  const z = splitLines_(document.getElementById("list_zones").value);
+
+  db.lists.customers = c;
+  db.lists.suppliers = s;
+  db.lists.zones = z;
+  db.settings.strictLists = document.getElementById("strictToggle").checked;
+
+  saveDB(db);
+  refreshListsUI_();
+  toast("Lists saved", `Customers: ${c.length} | Suppliers: ${s.length} | Zones: ${z.length}`);
+}
+function mergeListsFromData(){
+  db.lists.customers = uniqueSorted_([...(db.lists.customers||[]), ...db.customers.map(x=>x.name)]);
+  db.lists.suppliers = uniqueSorted_([...(db.lists.suppliers||[]), ...db.suppliers.map(x=>x.name)]);
+  db.lists.zones     = uniqueSorted_([...(db.lists.zones||[]), ...db.customers.map(x=>x.zone), ...db.suppliers.map(x=>x.zone)]);
+  saveDB(db);
+  loadListsToUI();
+  refreshListsUI_();
+  toast("Merged from data", `Customers: ${db.lists.customers.length} | Suppliers: ${db.lists.suppliers.length} | Zones: ${db.lists.zones.length}`);
+}
+function clearLists(){
+  if(!confirm("Clear master lists only? (Your saved records remain)")) return;
+  db.lists = { customers: [], suppliers: [], zones: [] };
+  saveDB(db);
+  loadListsToUI();
+  refreshListsUI_();
+  toast("Lists cleared");
+}
+
+/* =========================
+   Events
+========================= */
+document.getElementById("c_add").addEventListener("click", upsertCustomer);
+document.getElementById("s_add").addEventListener("click", upsertSupplier);
+document.getElementById("c_clear").addEventListener("click", clearCustomerForm);
+document.getElementById("s_clear").addEventListener("click", clearSupplierForm);
+
+["c_search","c_filterQuality","c_filterZone"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", renderCustomers);
+  document.getElementById(id).addEventListener("change", renderCustomers);
+});
+["s_search","s_filterQuality","s_filterZone"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", renderSuppliers);
+  document.getElementById(id).addEventListener("change", renderSuppliers);
+});
+
+document.getElementById("c_exportCsv").addEventListener("click", exportCustomersCSV);
+document.getElementById("s_exportCsv").addEventListener("click", exportSuppliersCSV);
+
+document.getElementById("exportJson").addEventListener("click", exportJSON);
+document.getElementById("importJson").addEventListener("click", ()=> document.getElementById("fileInput").click());
+document.getElementById("fileInput").addEventListener("change", (e)=>{
+  const f = e.target.files?.[0];
+  if(f) importJSONFile(f);
+  e.target.value = "";
+});
+document.getElementById("wipeAll").addEventListener("click", wipeAll);
+
+document.getElementById("m_run").addEventListener("click", runMatch);
+document.getElementById("m_clear").addEventListener("click", ()=>{
+  document.getElementById("m_zone").value = "";
+  document.getElementById("m_quality").value = "";
+  document.getElementById("m_tbody").innerHTML = `<tr><td colspan="5" class="small">Run a match to see business cases.</td></tr>`;
+});
+
+document.getElementById("lists_load").addEventListener("click", ()=>{
+  loadListsToUI();
+  toast("Loaded lists");
+});
+document.getElementById("lists_save").addEventListener("click", saveListsFromUI);
+document.getElementById("lists_merge").addEventListener("click", mergeListsFromData);
+document.getElementById("lists_clear").addEventListener("click", clearLists);
+document.getElementById("strictToggle").addEventListener("change", ()=>{
+  db.settings.strictLists = document.getElementById("strictToggle").checked;
+  saveDB(db);
+  toast("Strict mode", db.settings.strictLists ? "Enabled" : "Disabled");
+});
+
+/* =========================
+   Init
+========================= */
+loadListsToUI();
+refreshListsUI_();
+renderAll();
+document.getElementById("m_tbody").innerHTML = `<tr><td colspan="5" class="small">Run a match to see business cases.</td></tr>`;
+</script>
+</body>
+</html>
