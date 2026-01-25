@@ -1100,17 +1100,27 @@ window.askedTodayCustomer = function(id){
 
 /* Match */
 function runMatch(){
-  const zone = norm_(document.getElementById("m_zone").value).toLowerCase();
+  // Zone matching rule:
+  // - If m_zone is provided: filter records whose zone contains the input (helps typing),
+  //   BUT pairings will still require EXACT zone equality (case-insensitive) between customer and supplier.
+  // - If m_zone is empty: do NOT cross-match zones; only match customer targets to supplier routes with the SAME zone.
+  const zoneInput = norm_(document.getElementById("m_zone").value);
+  const zoneInputLC = zoneInput.toLowerCase();
   const quality = norm_(document.getElementById("m_quality").value);
-  const mCb = document.getElementById("m_cc_callback").value;
+  const mCb = document.getElementById("m_cc_callback").value; // "", "true", "false"
   const mOrigin = norm_(document.getElementById("m_cc_origin").value);
   const mDisplay = norm_(document.getElementById("m_cc_display").value);
 
-  const cust = db.customers.filter(c => {
-    const zOk = !zone || (c.zone || "").toLowerCase().includes(zone);
-    const qOk = !quality || (c.quality || "") === quality;
-    if(!zOk || !qOk) return false;
+  const zoneFilterActive = !!zoneInputLC;
 
+  // 1) Filter customers (optional zone input filter + optional quality + optional CC filters)
+  const cust = db.customers.filter(c => {
+    if(zoneFilterActive){
+      if(!(c.zone || "").toLowerCase().includes(zoneInputLC)) return false;
+    }
+    if(quality && (c.quality || "") !== quality) return false;
+
+    // Optional CC filters (apply when matching CC specifically OR when the user set CC filters)
     if(quality === "CC" || (!quality && (mCb || mOrigin || mDisplay))){
       if(mCb){
         const want = (mCb === "true");
@@ -1122,10 +1132,12 @@ function runMatch(){
     return true;
   });
 
+  // 2) Filter suppliers (optional zone input filter + optional quality + optional CC filters)
   const supp = db.suppliers.filter(s => {
-    const zOk = !zone || (s.zone || "").toLowerCase().includes(zone);
-    const qOk = !quality || (s.quality || "") === quality;
-    if(!zOk || !qOk) return false;
+    if(zoneFilterActive){
+      if(!(s.zone || "").toLowerCase().includes(zoneInputLC)) return false;
+    }
+    if(quality && (s.quality || "") !== quality) return false;
 
     if(quality === "CC" || (!quality && (mCb || mOrigin || mDisplay))){
       if(mCb){
@@ -1138,10 +1150,28 @@ function runMatch(){
     return true;
   });
 
+  // 3) Pair ONLY same-zone (case-insensitive exact)
   const rows = [];
   for(const c of cust){
     for(const s of supp){
+      // quality pairing (if the user chose a quality, both lists already filtered,
+      // but keep this for safety when 'All qualities' is used)
       if(quality && c.quality !== s.quality) continue;
+
+      // KEY FIX: enforce exact zone match between customer and supplier
+      if(!eqCI(c.zone, s.zone)) continue;
+
+      // If CC and user set CC filters, ensure both satisfy them consistently
+      if((c.quality === "CC") && (s.quality === "CC")){
+        if(mCb){
+          const want = (mCb === "true");
+          if((c.ccCallback === true) !== want) continue;
+          if((s.ccCallback === true) !== want) continue;
+        }
+        if(mOrigin && (!eqCI(c.ccOrigin, mOrigin) || !eqCI(s.ccOrigin, mOrigin))) continue;
+        if(mDisplay && (!eqCI(c.ccDisplay, mDisplay) || !eqCI(s.ccDisplay, mDisplay))) continue;
+      }
+
       const t = (c.targetRate ?? null);
       const r = (s.rate ?? null);
       const delta = (t !== null && r !== null) ? (r - t) : null;
@@ -1149,6 +1179,7 @@ function runMatch(){
     }
   }
 
+  // 4) Sort by best delta (cheapest vs target first)
   rows.sort((a,b)=>{
     const ad = a.delta ?? 9999;
     const bd = b.delta ?? 9999;
@@ -1181,9 +1212,12 @@ function runMatch(){
   }).join("");
 
   if(!tb.innerHTML){
-    tb.innerHTML = `<tr><td colspan="5" class="small">No matches found for the selected filters.</td></tr>`;
+    const msg = zoneFilterActive
+      ? "No matches found for this zone/quality (matching requires exact same zone between customer and supplier)."
+      : "No matches found. Note: matching is SAME-ZONE only (Nigeria MTN will not match Kenya Safaricom).";
+    tb.innerHTML = `<tr><td colspan="5" class="small">${escapeHtml(msg)}</td></tr>`;
   } else {
-    toast("Match complete", `Found ${rows.length} pair(s). Showing up to 200.`);
+    toast("Match complete", `Found ${rows.length} same-zone pair(s). Showing up to 200.`);
   }
 }
 
