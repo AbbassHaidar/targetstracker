@@ -1,1665 +1,1432 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Voice Ratesheet Manager</title>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --orange: #ff7a00;
-  --orange-dark: #e56d00;
-  --orange-light: #fff3e8;
-  --orange-border: #ffd0a0;
-  --red: #cc0000;
-  --red-dark: #aa0000;
-  --green: #00aa55;
-  --gray-50: #f7f8fa;
-  --gray-100: #f0f2f5;
-  --gray-200: #e4e7ed;
-  --gray-400: #9aa0ac;
-  --gray-600: #555e6d;
-  --gray-800: #1e2330;
-  --white: #ffffff;
-  --radius: 10px;
-  --shadow: 0 2px 10px rgba(0,0,0,0.07);
-  --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
-  --font: 'DM Sans', sans-serif;
-  --mono: 'DM Mono', monospace;
-}
-
-body {
-  font-family: var(--font);
-  background: var(--gray-100);
-  color: var(--gray-800);
-  min-height: 100vh;
-  font-size: 14px;
-}
-
-/* ── TOPBAR ─────────────────────────────────────────── */
-.topbar {
-  background: var(--white);
-  border-bottom: 1px solid var(--gray-200);
-  padding: 0 24px;
-  height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  gap: 16px;
-}
-
-.topbar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--orange);
-  white-space: nowrap;
-}
-
-.logo svg { flex-shrink: 0; }
-
-.topbar-center {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  justify-content: center;
-  max-width: 480px;
-}
-
-.session-label {
-  font-size: 12px;
-  color: var(--gray-400);
-  white-space: nowrap;
-}
-
-.session-select {
-  border: 1px solid var(--gray-200);
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-family: var(--font);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--gray-800);
-  background: var(--gray-50);
-  cursor: pointer;
-  flex: 1;
-  max-width: 200px;
-}
-
-.session-select:focus { outline: none; border-color: var(--orange); }
-
-.btn-new-session {
-  background: var(--orange);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-family: var(--font);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
-}
-
-.btn-new-session:hover { background: var(--orange-dark); }
-
-.btn-delete-session {
-  background: none;
-  border: 1px solid var(--gray-200);
-  border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--gray-400);
-  transition: all 0.15s;
-  line-height: 1;
-}
-
-.btn-delete-session:hover { border-color: var(--red); color: var(--red); background: #fff5f5; }
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.autosave-indicator {
-  font-size: 11px;
-  color: var(--gray-400);
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.autosave-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--green);
-  flex-shrink: 0;
-  transition: background 0.3s;
-}
-
-.autosave-dot.saving { background: var(--orange); animation: blink 0.6s infinite; }
-
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-/* Gear button */
-.gear-btn {
-  position: relative;
-  background: none;
-  border: 1px solid var(--gray-200);
-  border-radius: 8px;
-  width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  color: var(--gray-600);
-  transition: all 0.15s;
-}
-
-.gear-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
-
-.gear-btn.open { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
-
-/* Files dropdown */
-.files-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  background: var(--white);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  padding: 16px;
-  width: 440px;
-  display: none;
-  z-index: 200;
-}
-
-.files-dropdown.open { display: block; }
-
-.files-dropdown h3 {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--gray-600);
-  margin-bottom: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.files-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-.file-field label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--gray-600);
-  margin-bottom: 5px;
-}
-
-.file-field input[type=file] {
-  width: 100%;
-  font-family: var(--font);
-  font-size: 12px;
-  color: var(--gray-600);
-  border: 1px dashed var(--gray-200);
-  border-radius: 8px;
-  padding: 8px;
-  cursor: pointer;
-  background: var(--gray-50);
-}
-
-.file-field input[type=file]:hover { border-color: var(--orange); }
-
-.file-status {
-  font-size: 11px;
-  color: var(--green);
-  margin-top: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── MAIN LAYOUT ────────────────────────────────────── */
-.main {
-  display: grid;
-  grid-template-columns: 420px 1fr;
-  gap: 16px;
-  padding: 16px 20px;
-  max-width: 1600px;
-  margin: 0 auto;
-}
-
-@media(max-width: 1100px) { .main { grid-template-columns: 1fr; } }
-
-/* ── CARDS ──────────────────────────────────────────── */
-.card {
-  background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.card-header {
-  padding: 14px 18px 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.card-title {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--gray-600);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.card-title svg { color: var(--orange); }
-
-.card-body { padding: 14px 18px 18px; }
-
-/* ── FORM ELEMENTS ──────────────────────────────────── */
-.form-group { margin-bottom: 12px; }
-
-.form-group label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--gray-600);
-  margin-bottom: 5px;
-}
-
-.form-row { display: flex; gap: 10px; }
-.form-row .form-group { flex: 1; margin-bottom: 0; }
-
-input[type=text], input[type=number], input[type=date], select {
-  width: 100%;
-  padding: 9px 12px;
-  border: 1px solid var(--gray-200);
-  border-radius: 8px;
-  font-family: var(--font);
-  font-size: 13px;
-  color: var(--gray-800);
-  background: var(--white);
-  transition: border-color 0.15s;
-  -webkit-appearance: none;
-}
-
-input:focus, select:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(255,122,0,0.08); }
-
-/* ── SEARCH BOX ─────────────────────────────────────── */
-.search-wrap { position: relative; }
-
-.search-wrap input {
-  padding-left: 36px;
-  font-size: 13px;
-}
-
-.search-icon {
-  position: absolute;
-  left: 11px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--gray-400);
-  pointer-events: none;
-}
-
-/* ── MATCH BOX ──────────────────────────────────────── */
-.match-header {
-  display: none;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 0 4px;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.match-header.visible { display: flex; }
-
-.match-count {
-  font-size: 12px;
-  color: var(--gray-400);
-  font-style: italic;
-}
-
-.match-select-all {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  color: var(--gray-600);
-  cursor: pointer;
-  user-select: none;
-  font-weight: 600;
-}
-
-.match-select-all input[type=checkbox],
-.preview-checkbox,
-th input[type=checkbox] {
-  width: 15px; height: 15px;
-  padding: 0;
-  cursor: pointer;
-  accent-color: var(--orange);
-}
-
-.match-box {
-  border: 1px solid var(--gray-200);
-  border-radius: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-  background: var(--gray-50);
-}
-
-.match-empty {
-  padding: 16px;
-  color: var(--gray-400);
-  font-size: 13px;
-  text-align: center;
-}
-
-.match-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--gray-200);
-  cursor: pointer;
-  transition: background 0.12s;
-}
-
-.match-item:last-child { border-bottom: none; }
-.match-item:hover { background: var(--orange-light); }
-.match-item.selected { background: var(--orange-light); }
-
-.match-item input[type=checkbox] {
-  width: 15px; height: 15px; min-width: 15px;
-  padding: 0; margin-top: 2px;
-  cursor: pointer; accent-color: var(--orange);
-}
-
-.match-zone { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
-.match-codes { font-size: 11px; color: var(--gray-400); font-family: var(--mono); }
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  border-radius: 20px;
-  background: var(--orange-light);
-  color: var(--orange);
-  font-size: 10px;
-  font-weight: 600;
-  margin-left: 5px;
-}
-
-.badge.already { background: #e3f5eb; color: #1a7a40; }
-
-.highlight { background: #ffe066; border-radius: 2px; }
-
-/* ── BUTTONS ────────────────────────────────────────── */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 9px 16px;
-  border-radius: 8px;
-  border: none;
-  font-family: var(--font);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.btn-primary { background: var(--orange); color: white; }
-.btn-primary:hover { background: var(--orange-dark); }
-.btn-secondary { background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--gray-200); }
-.btn-secondary:hover { background: var(--gray-200); }
-.btn-danger { background: var(--red); color: white; }
-.btn-danger:hover { background: var(--red-dark); }
-.btn-sm { padding: 6px 10px; font-size: 12px; }
-.btn-full { width: 100%; }
-
-.btn.confirming { background: var(--red-dark) !important; animation: pulse 0.3s ease; }
-@keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.03)} 100%{transform:scale(1)} }
-
-.btn-row { display: flex; gap: 8px; margin-top: 12px; }
-.btn-row .btn { flex: 1; }
-
-/* ── QUICK DATE ─────────────────────────────────────── */
-.quick-date-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.quick-date-btn {
-  flex: 1;
-  padding: 5px 8px;
-  border: 1px solid var(--gray-200);
-  border-radius: 6px;
-  background: var(--gray-50);
-  font-family: var(--font);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--gray-600);
-  cursor: pointer;
-  transition: all 0.12s;
-  text-align: center;
-}
-
-.quick-date-btn:hover, .quick-date-btn.active {
-  background: var(--orange-light);
-  border-color: var(--orange);
-  color: var(--orange);
-}
-
-/* ── PREVIEW TABLE ──────────────────────────────────── */
-.preview-stats {
-  display: flex;
-  gap: 16px;
-  padding: 10px 18px;
-  background: var(--gray-50);
-  border-bottom: 1px solid var(--gray-200);
-  flex-wrap: wrap;
-}
-
-.pstat {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--gray-600);
-}
-
-.pstat-value {
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--orange);
-  font-family: var(--mono);
-}
-
-.table-wrap {
-  overflow-x: auto;
-  max-height: 380px;
-  overflow-y: auto;
-}
-
-table { width: 100%; border-collapse: collapse; }
-
-th {
-  background: var(--gray-50);
-  padding: 9px 12px;
-  text-align: left;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--gray-400);
-  border-bottom: 1px solid var(--gray-200);
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
-
-td {
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--gray-200);
-  font-size: 13px;
-  vertical-align: middle;
-}
-
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: var(--gray-50); }
-
-.row-num { color: var(--gray-400); font-size: 11px; font-family: var(--mono); }
-
-.preview-input {
-  width: 72px;
-  padding: 5px 7px;
-  font-size: 12px;
-  font-family: var(--mono);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  transition: all 0.12s;
-}
-
-.preview-input:hover { border-color: var(--gray-200); background: var(--white); }
-.preview-input:focus { border-color: var(--orange); background: var(--white); outline: none; box-shadow: 0 0 0 3px rgba(255,122,0,0.08); }
-
-input[type=date].preview-input { width: 120px; }
-
-/* ── BULK BAR ────────────────────────────────────────── */
-.bulk-bar {
-  display: none;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 18px;
-  background: var(--orange-light);
-  border-bottom: 1px solid var(--orange-border);
-  flex-wrap: wrap;
-}
-
-.bulk-bar.visible { display: flex; }
-
-.bulk-info {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--orange);
-  white-space: nowrap;
-  margin-right: 4px;
-}
-
-.bulk-bar input {
-  width: 110px;
-  padding: 6px 8px;
-  font-size: 12px;
-  border-radius: 6px;
-  border: 1px solid var(--orange-border);
-  font-family: var(--font);
-}
-
-.bulk-bar input[type=date] { width: 140px; }
-
-.bulk-bar .btn { padding: 6px 12px; font-size: 12px; }
-
-/* ── EXPORT ROW ─────────────────────────────────────── */
-.export-row {
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-  padding: 14px 18px;
-  border-top: 1px solid var(--gray-200);
-  background: var(--white);
-  flex-wrap: wrap;
-}
-
-.export-row .form-group { margin-bottom: 0; flex: 1; min-width: 120px; }
-
-/* ── UNDO BAR ────────────────────────────────────────── */
-.undo-bar {
-  display: none;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 18px;
-  background: var(--gray-800);
-  color: white;
-  font-size: 12px;
-}
-
-.undo-bar.visible { display: flex; }
-
-.undo-bar .btn { padding: 5px 12px; font-size: 12px; background: var(--orange); color: white; }
-.undo-bar .btn:hover { background: var(--orange-dark); }
-
-/* ── EXCEPTIONS ─────────────────────────────────────── */
-.exceptions-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  padding: 14px 18px;
-  user-select: none;
-}
-
-.exceptions-header:hover { background: var(--gray-50); }
-
-.exc-count-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 20px;
-  background: var(--orange-light);
-  color: var(--orange);
-  font-size: 11px;
-  font-weight: 700;
-  margin-left: 8px;
-}
-
-.exceptions-body { display: none; padding: 0 18px 18px; }
-.exceptions-body.open { display: block; }
-
-.exc-search-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-end; }
-.exc-search-row input { flex: 1; }
-
-/* ── TOAST ──────────────────────────────────────────── */
-#toastContainer {
-  position: fixed;
-  bottom: 20px; right: 20px;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.toast {
-  background: var(--gray-800);
-  color: white;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  box-shadow: var(--shadow-lg);
-  border-left: 3px solid var(--orange);
-  opacity: 1;
-  transition: opacity 0.3s;
-  max-width: 320px;
-}
-
-.toast.success { border-left-color: var(--green); }
-.toast.danger  { border-left-color: var(--red); }
-.toast.fading  { opacity: 0; }
-
-/* ── NEW SESSION MODAL ──────────────────────────────── */
-.modal-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.4);
-  z-index: 500;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-overlay.open { display: flex; }
-
-.modal {
-  background: var(--white);
-  border-radius: var(--radius);
-  padding: 24px;
-  width: 340px;
-  box-shadow: var(--shadow-lg);
-}
-
-.modal h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
-
-.modal input {
-  width: 100%; margin-bottom: 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--gray-200);
-  border-radius: 8px;
-  font-family: var(--font);
-  font-size: 14px;
-}
-
-.modal input:focus { outline: none; border-color: var(--orange); }
-
-.modal-btns { display: flex; gap: 8px; }
-.modal-btns .btn { flex: 1; }
-
-/* scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 10px; }
-
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Voice Targets & Routes Tracker (Local + Lists + CC Details)</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#111b2e;
+      --text:#e6edf7;
+      --muted:#a9b4c7;
+      --line:rgba(255,255,255,.10);
+      --accent:#7aa2ff;
+      --good:#39d98a;
+      --warn:#ffcc66;
+      --bad:#ff6b6b;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+    }
+    body.light{
+      --bg:#f5f7fb;
+      --panel:#ffffff;
+      --text:#1f2937;
+      --muted:#6b7280;
+      --line:rgba(0,0,0,.12);
+      --accent:#2563eb;
+      --good:#059669;
+      --warn:#d97706;
+      --bad:#dc2626;
+      --shadow: 0 10px 25px rgba(0,0,0,.08);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans";
+      background: radial-gradient(1200px 700px at 20% 10%, color-mix(in srgb, var(--accent) 25%, transparent), var(--bg) 55%);
+      color:var(--text);
+    }
+    header{
+      padding:22px 18px;
+      border-bottom:1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0));
+      position:sticky; top:0; backdrop-filter: blur(8px);
+      z-index: 5;
+    }
+    .wrap{max-width:1200px; margin:0 auto; padding:0 12px;}
+    .title{display:flex; align-items:flex-end; justify-content:space-between; gap:12px;}
+    h1{margin:0; font-size:18px; letter-spacing:.2px;}
+    .subtitle{margin:6px 0 0; color:var(--muted); font-size:13px;}
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px; border:1px solid var(--line);
+      border-radius:999px; background:rgba(255,255,255,.03);
+      color:var(--muted); font-size:12px; white-space:nowrap;
+    }
+    .stack{display:flex; flex-direction:column; gap:14px; padding:16px 0 22px;}
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      overflow:hidden;
+    }
+    summary.head{
+      padding:14px 14px 10px;
+      border-bottom:1px solid var(--line);
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      background: rgba(0,0,0,.12);
+      cursor:pointer; user-select:none; list-style:none;
+    }
+    summary.head::-webkit-details-marker{ display:none; }
+    summary.head .headLeft{display:flex; flex-direction:column; gap:2px;}
+    summary.head h2{margin:0; font-size:14px; letter-spacing:.3px;}
+    .chev{
+      width:32px; height:32px; display:grid; place-items:center;
+      border:1px solid var(--line); border-radius:10px;
+      background: rgba(255,255,255,.04); color: var(--muted);
+      transition: transform .15s ease; flex: 0 0 auto;
+    }
+    details[open] .chev{ transform: rotate(180deg); }
+    .card .body{padding:14px;}
+    .row{display:grid; grid-template-columns: 1fr 1fr; gap:10px;}
+    .row3{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;}
+    @media (max-width: 680px){ .row, .row3{grid-template-columns:1fr;} }
+    label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px;}
+    input, select, textarea{
+      width:100%; padding:10px 10px; border-radius:12px;
+      border:1px solid var(--line); background: rgba(15, 23, 42, .65);
+      color: var(--text); outline:none;
+    }
+    body.light input, body.light select, body.light textarea{ background: rgba(255,255,255,.70); }
+    textarea{min-height:74px; resize:vertical}
+    input:focus, select:focus, textarea:focus{
+      border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .actions{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:flex-end; margin-top:12px;}
+    button{
+      padding:10px 12px; border-radius:12px; border:1px solid var(--line);
+      background: rgba(255,255,255,.05); color: var(--text); cursor:pointer;
+      transition: transform .04s ease, background .2s ease, border-color .2s ease;
+    }
+    body.light button{ background: rgba(0,0,0,.03); }
+    button:hover{background: rgba(255,255,255,.08);}
+    body.light button:hover{background: rgba(0,0,0,.06);}
+    button:active{transform: translateY(1px);}
+    .primary{border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 18%, transparent);}
+    .danger{border-color: rgba(255,107,107,.55); background: rgba(255,107,107,.12);}
+    .mutedBtn{ color: var(--muted); }
+    .toolbar{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+      padding:12px 14px; border-bottom:1px solid var(--line); background: rgba(0,0,0,.10);
+    }
+    body.light .toolbar{ background: rgba(0,0,0,.04); }
+    .toolbar .left, .toolbar .right{display:flex; flex-wrap:wrap; gap:10px; align-items:center;}
+    .small{font-size:12px; color:var(--muted);}
+    .tableWrap{padding: 0 14px 14px; overflow:auto;}
+    table{
+      width:100%; border-collapse:separate; border-spacing:0;
+      overflow:hidden; border:1px solid var(--line); border-radius:14px;
+      background: rgba(0,0,0,.08);
+    }
+    body.light table{ background: rgba(0,0,0,.02); }
+    th, td{padding:10px 10px; border-bottom:1px solid var(--line); vertical-align:top; font-size:12.5px;}
+    th{text-align:left; color:var(--muted); background: rgba(255,255,255,.03);}
+    body.light th{ background: rgba(0,0,0,.03); }
+    tr:last-child td{border-bottom:none;}
+    .tag{
+      display:inline-flex; padding:2px 8px; border:1px solid var(--line);
+      border-radius:999px; font-size:11px; color:var(--muted);
+      background: rgba(255,255,255,.03); margin-right:6px; white-space:nowrap;
+    }
+    body.light .tag{ background: rgba(0,0,0,.03); }
+    .rate{font-variant-numeric: tabular-nums; font-weight:600;}
+    .ok{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+    .miniActions{display:flex; gap:8px; flex-wrap:wrap;}
+    .miniActions button{padding:6px 9px; border-radius:10px; font-size:12px;}
+    .footerNote{padding: 0 14px 14px; color: var(--muted); font-size: 12px; line-height:1.35;}
+    .divider{height:1px; background:var(--line); margin:14px 0;}
+    .toast{
+      position:fixed; right:16px; bottom:16px;
+      background: color-mix(in srgb, var(--panel) 92%, transparent);
+      border:1px solid var(--line); border-radius: 14px; padding:10px 12px;
+      color: var(--text); box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: 460px; display:none; z-index: 10;
+    }
+    .toast .t{font-size:13px; margin:0;}
+    .toast .s{font-size:12px; color: var(--muted); margin:4px 0 0; white-space:pre-wrap;}
+    .fileInput{ display:none; }
+    .switch{
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      padding:10px 12px; border:1px solid var(--line); border-radius:14px;
+      background: rgba(255,255,255,.03);
+    }
+    body.light .switch{ background: rgba(0,0,0,.03); }
+    .switch input{width:auto}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
+    .ccBox{
+      margin-top:12px;
+      border:1px dashed color-mix(in srgb, var(--accent) 40%, var(--line));
+      border-radius:14px;
+      padding:12px;
+      background: rgba(255,255,255,.03);
+    }
+    body.light .ccBox{ background: rgba(0,0,0,.02); }
+    .ccTitle{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
+    .ccTitle strong{font-size:12.5px;}
+    .checkboxLine{display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--line); border-radius:12px; background: rgba(255,255,255,.03);}
+    body.light .checkboxLine{ background: rgba(0,0,0,.03); }
+    .checkboxLine input{width:auto}
+  </style>
 </head>
+
 <body>
-
-<div id="toastContainer"></div>
-
-<!-- NEW SESSION MODAL -->
-<div class="modal-overlay" id="newSessionModal">
-  <div class="modal">
-    <h3>New Session</h3>
-    <input type="text" id="newSessionName" placeholder="e.g. June Etisalat" maxlength="50">
-    <div class="modal-btns">
-      <button class="btn btn-secondary" id="cancelNewSession">Cancel</button>
-      <button class="btn btn-primary" id="confirmNewSession">Create</button>
-    </div>
-  </div>
-</div>
-
-<!-- TOPBAR -->
-<div class="topbar">
-  <div class="topbar-left">
-    <div class="logo">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
-      Voice Ratesheet
-    </div>
-  </div>
-
-  <div class="topbar-center">
-    <span class="session-label">Session:</span>
-    <select class="session-select" id="sessionDropdown"></select>
-    <button class="btn-new-session" id="btnNewSession">+ New</button>
-    <button class="btn-delete-session" id="btnDeleteSession" title="Delete session">🗑</button>
-  </div>
-
-  <div class="topbar-right">
-    <div class="autosave-indicator">
-      <div class="autosave-dot" id="autosaveDot"></div>
-      <span id="autosaveText">Saved</span>
-    </div>
-    <div style="position:relative;">
-      <button class="gear-btn" id="gearBtn" title="Files & Settings">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
-      <div class="files-dropdown" id="filesDropdown">
-        <h3>Files & Settings</h3>
-        <div class="files-grid">
-          <div class="file-field">
-            <label>Master Code List</label>
-            <input type="file" id="masterFile" accept=".xlsx,.xls,.csv">
-            <div class="file-status" id="masterStatus"></div>
-            <div style="font-size:11px;color:var(--gray-400);margin-top:3px;">Col A = Code · Col B = Destination</div>
-          </div>
-          <div class="file-field">
-            <label>Export Template</label>
-            <input type="file" id="templateFile" accept=".xlsx,.xls">
-            <div class="file-status" id="templateStatus"></div>
-          </div>
-        </div>
+<header>
+  <div class="wrap">
+    <div class="title">
+      <div>
+        <h1>Voice Targets & Supplier Routes Tracker</h1>
+        <div class="subtitle">Local-only tracker with master lists, CC-specific details, and Dark/Light mode.</div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <div class="pill" id="statsPill">Loading…</div>
+        <button id="themeToggle" class="pill" type="button">Dark</button>
       </div>
     </div>
   </div>
-</div>
+</header>
 
-<!-- MAIN -->
-<div class="main">
+<main class="wrap">
+  <div class="stack">
 
-  <!-- LEFT: Add Routes -->
-  <div style="display:flex;flex-direction:column;gap:16px;">
-
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add / Update Routes
+    <details class="card" open id="sec_customers">
+      <summary class="head">
+        <div class="headLeft">
+          <h2>Customer Targets</h2>
+          <div class="small">Storage: LocalStorage</div>
         </div>
-      </div>
-      <div class="card-body">
+        <div class="chev">▾</div>
+      </summary>
 
-        <div class="form-group">
-          <label>Search Destination</label>
-          <div class="search-wrap">
-            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="searchBox" placeholder="Type destination name or code...">
-          </div>
-        </div>
-
-        <div class="match-header" id="matchHeader">
-          <span class="match-count" id="matchCount"></span>
-          <label class="match-select-all">
-            <input type="checkbox" id="selectAllMatches"> Select All
-          </label>
-        </div>
-
-        <div class="match-box" id="matchBox">
-          <div class="match-empty">Type above to search destinations</div>
-        </div>
-
-        <div style="margin-top:14px;">
-          <div class="form-row" style="margin-bottom:10px;">
-            <div class="form-group">
-              <label>Rate</label>
-              <input type="number" step="0.000001" id="rate" placeholder="0.01200">
+      <div class="cardContent">
+        <div class="body">
+          <div class="row">
+            <div>
+              <label>Customer Name</label>
+              <input id="c_name" list="dl_customers" placeholder="Select or type customer name" />
+              <datalist id="dl_customers"></datalist>
             </div>
-            <div class="form-group">
-              <label>Effective Date</label>
-              <div class="quick-date-row">
-                <button class="quick-date-btn active" data-days="0">Today</button>
-                <button class="quick-date-btn" data-days="1">+1</button>
-                <button class="quick-date-btn" data-days="7">+7</button>
+            <div>
+              <label>Zone</label>
+              <input id="c_zone" list="dl_zones" placeholder="Select or type zone" />
+              <datalist id="dl_zones"></datalist>
+            </div>
+          </div>
+
+          <div class="row3" style="margin-top:10px;">
+            <div>
+              <label>Quality</label>
+              <select id="c_quality">
+                <option value="">Select…</option>
+                <option>CLI</option>
+                <option>NCLI</option>
+                <option>CC</option>
+                <option>TDM</option>
+                <option>OTP</option>
+                <option>Premium</option>
+                <option>Standard</option>
+              </select>
+            </div>
+            <div>
+              <label>Target Rate (USD)</label>
+              <input id="c_rate" placeholder="e.g., 0.055" inputmode="decimal" />
+            </div>
+            <div>
+              <label>Last Asked Date</label>
+              <input id="c_lastAsked" type="date" />
+            </div>
+          </div>
+
+          <div class="ccBox" id="c_ccBox" style="display:none;">
+            <div class="ccTitle">
+              <strong>CC Details (Customer Target)</strong>
+              <span class="tag">Shown only when Quality = CC</span>
+            </div>
+
+            <div class="row3">
+              <div>
+                <label>Traffic Origin / Allowed ANI</label>
+                <input id="c_cc_origin" list="dl_cc_origins" placeholder="Select or type (e.g., Local, US, EY, BY Carrier…)" />
+                <datalist id="dl_cc_origins"></datalist>
               </div>
-              <input type="date" id="effectiveDate">
+              <div>
+                <label>Display Type</label>
+                <input id="c_cc_display" list="dl_cc_displays" placeholder="Select or type (e.g., Correct, Local Random, US Random…)" />
+                <datalist id="dl_cc_displays"></datalist>
+              </div>
+              <div>
+                <label>Callback Required</label>
+                <div class="checkboxLine">
+                  <input type="checkbox" id="c_cc_callback" />
+                  <div>
+                    <div><strong>Enable</strong></div>
+                    <div class="small">Only for CC targets that require callback.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:10px;">
+              <label>CC Notes (optional)</label>
+              <textarea id="c_cc_notes" placeholder="Examples: origin restrictions, callback behavior, display requirements, any special rules..."></textarea>
             </div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Initial (Min)</label>
-              <input type="number" id="initialPeriod" value="1">
+
+          <div class="row" style="margin-top:10px;">
+            <div>
+              <label>Next Follow-up Date (optional)</label>
+              <input id="c_nextFollow" type="date" />
             </div>
-            <div class="form-group">
-              <label>Recurring (Min)</label>
-              <input type="number" id="recurringPeriod" value="1">
+            <div>
+              <label>Status</label>
+              <select id="c_status">
+                <option value="Open">Open</option>
+                <option value="In Discussion">In Discussion</option>
+                <option value="Quoted">Quoted</option>
+                <option value="Agreed">Agreed</option>
+                <option value="Closed / Won">Closed / Won</option>
+                <option value="Closed / Lost">Closed / Lost</option>
+              </select>
             </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label>Additional Info</label>
+            <textarea id="c_info" placeholder="General notes: volumes, restrictions, preferences, timestamps, etc."></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="mutedBtn" id="c_clear">Clear</button>
+            <button class="primary" id="c_add">Add Customer Target</button>
           </div>
         </div>
 
-        <div class="btn-row">
-          <button class="btn btn-primary btn-full" id="addBtn">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add / Update Selected
-          </button>
-          <button class="btn btn-secondary" id="clearMatchesBtn">Clear</button>
+        <div class="toolbar">
+          <div class="left">
+            <input id="c_search" placeholder="Search customers (name/zone/notes)..." />
+            <select id="c_filterQuality">
+              <option value="">All qualities</option>
+              <option>CLI</option><option>NCLI</option><option>CC</option><option>TDM</option>
+              <option>OTP</option><option>Premium</option><option>Standard</option>
+            </select>
+            <input id="c_filterZone" placeholder="Filter zone..." />
+          </div>
+          <div class="right">
+            <button id="c_exportCsv">Export CSV</button>
+          </div>
         </div>
 
-      </div>
-    </div>
-
-  </div>
-
-  <!-- RIGHT: Preview -->
-  <div class="card" style="display:flex;flex-direction:column;">
-
-    <div class="card-header" style="padding:14px 18px;">
-      <div class="card-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        Preview &amp; Export
-      </div>
-      <button class="btn btn-danger btn-sm" id="clearAllBtn">Clear All</button>
-    </div>
-
-    <!-- Preview stats -->
-    <div class="preview-stats" id="previewStats">
-      <div class="pstat"><span class="pstat-value" id="statDest">0</span> Destinations</div>
-      <div class="pstat"><span class="pstat-value" id="statCodes">0</span> Codes</div>
-      <div class="pstat"><span class="pstat-value" id="statRates">0</span> Unique Rates</div>
-    </div>
-
-    <!-- Bulk bar -->
-    <div class="bulk-bar" id="bulkBar">
-      <span class="bulk-info" id="bulkInfo">0 selected</span>
-      <input type="number" step="0.000001" id="bulkRate" placeholder="Bulk rate">
-      <input type="date" id="bulkDate">
-      <button class="btn btn-primary" id="applyBulkBtn">Apply</button>
-      <button class="btn btn-danger" id="deleteSelectedBtn">Delete Selected</button>
-    </div>
-
-    <!-- Undo bar -->
-    <div class="undo-bar" id="undoBar">
-      <span id="undoMessage">Last action can be undone</span>
-      <button class="btn" id="undoBtn">↩ Undo</button>
-    </div>
-
-    <!-- Table -->
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:32px;"><input type="checkbox" id="selectAllPreview"></th>
-            <th style="width:30px;">#</th>
-            <th>Destination</th>
-            <th>Codes</th>
-            <th>Rate</th>
-            <th>Date</th>
-            <th>Init</th>
-            <th>Rec</th>
-            <th style="width:60px;"></th>
-          </tr>
-        </thead>
-        <tbody id="previewBody"></tbody>
-      </table>
-    </div>
-
-    <!-- Export row -->
-    <div class="export-row">
-      <div class="form-group">
-        <label>File Name</label>
-        <input type="text" id="exportFileName" placeholder="Ratesheet">
-      </div>
-      <div class="form-group" style="max-width:100px;">
-        <label>Start Row</label>
-        <input type="number" id="startRowInput" value="17" min="1">
-      </div>
-      <button class="btn btn-primary" id="exportBtn" style="flex-shrink:0;padding:9px 20px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Generate XLSX
-      </button>
-    </div>
-
-    <!-- Exceptions -->
-    <div style="border-top:1px solid var(--gray-200);">
-      <div class="exceptions-header" id="exceptionsToggle">
-        <div class="card-title">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Period Exceptions
-          <span class="exc-count-badge" id="excCountBadge">0</span>
-        </div>
-        <svg id="excChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--gray-400);transition:transform 0.2s;"><polyline points="6 9 12 15 18 9"/></svg>
-      </div>
-      <div class="exceptions-body" id="exceptionsBody">
-        <div class="exc-search-row">
-          <input type="text" id="exceptionsSearch" placeholder="Filter exceptions...">
-          <button class="btn btn-danger btn-sm" id="deleteFilteredBtn">Delete Filtered</button>
-        </div>
-        <div class="table-wrap" style="max-height:220px;">
+        <div class="tableWrap">
           <table>
             <thead>
               <tr>
-                <th>Destination</th>
-                <th>Initial</th>
-                <th>Recurring</th>
-                <th style="width:60px;"></th>
+                <th style="width:16%;">Customer</th>
+                <th style="width:16%;">Zone</th>
+                <th style="width:9%;">Quality</th>
+                <th style="width:9%;">Target</th>
+                <th style="width:15%;">Dates</th>
+                <th style="width:20%;">CC Details</th>
+                <th>Additional Info</th>
+                <th style="width:16%;">Actions</th>
               </tr>
             </thead>
-            <tbody id="excTableBody"></tbody>
+            <tbody id="c_tbody"></tbody>
           </table>
         </div>
+
+        <div class="footerNote">
+          Tip: Use “Asked Today” to stamp the latest request date for a customer target.
+        </div>
       </div>
-    </div>
+    </details>
+
+    <details class="card" open id="sec_suppliers">
+      <summary class="head">
+        <div class="headLeft">
+          <h2>Supplier Routes</h2>
+          <div class="small">Storage: LocalStorage</div>
+        </div>
+        <div class="chev">▾</div>
+      </summary>
+
+      <div class="cardContent">
+        <div class="body">
+          <div class="row">
+            <div>
+              <label>Supplier Name</label>
+              <input id="s_name" list="dl_suppliers" placeholder="Select or type supplier name" />
+              <datalist id="dl_suppliers"></datalist>
+            </div>
+            <div>
+              <label>Zone</label>
+              <input id="s_zone" list="dl_zones" placeholder="Select or type zone" />
+            </div>
+          </div>
+
+          <div class="row3" style="margin-top:10px;">
+            <div>
+              <label>Quality</label>
+              <select id="s_quality">
+                <option value="">Select…</option>
+                <option>CLI</option>
+                <option>NCLI</option>
+                <option>CC</option>
+                <option>TDM</option>
+                <option>OTP</option>
+                <option>Premium</option>
+                <option>Standard</option>
+              </select>
+            </div>
+            <div>
+              <label>Rate (USD)</label>
+              <input id="s_rate" placeholder="e.g., 0.063" inputmode="decimal" />
+            </div>
+            <div>
+              <label>Effective Date (optional)</label>
+              <input id="s_effective" type="date" />
+            </div>
+          </div>
+
+          <div class="ccBox" id="s_ccBox" style="display:none;">
+            <div class="ccTitle">
+              <strong>CC Details (Supplier Route)</strong>
+              <span class="tag">Shown only when Quality = CC</span>
+            </div>
+
+            <div class="row3">
+              <div>
+                <label>Traffic Origin / Allowed ANI</label>
+                <input id="s_cc_origin" list="dl_cc_origins" placeholder="Select or type (e.g., Local, US, EY, BY Carrier…)" />
+              </div>
+              <div>
+                <label>Display Type</label>
+                <input id="s_cc_display" list="dl_cc_displays" placeholder="Select or type (e.g., Correct, Local Random, US Random…)" />
+              </div>
+              <div>
+                <label>Callback Supported / Required</label>
+                <div class="checkboxLine">
+                  <input type="checkbox" id="s_cc_callback" />
+                  <div>
+                    <div><strong>Enable</strong></div>
+                    <div class="small">Tick if supplier route supports/requires callback for this CC traffic.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:10px;">
+              <label>CC Notes (optional)</label>
+              <textarea id="s_cc_notes" placeholder="Examples: origin restrictions, display behavior, callback rules, CLI stability, etc."></textarea>
+            </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label>Additional Info</label>
+            <textarea id="s_info" placeholder="General notes: direct/indirect, caps, terms, etc."></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="mutedBtn" id="s_clear">Clear</button>
+            <button class="primary" id="s_add">Add Supplier Route</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="left">
+            <input id="s_search" placeholder="Search suppliers (name/zone/notes)..." />
+            <select id="s_filterQuality">
+              <option value="">All qualities</option>
+              <option>CLI</option><option>NCLI</option><option>CC</option><option>TDM</option>
+              <option>OTP</option><option>Premium</option><option>Standard</option>
+            </select>
+            <input id="s_filterZone" placeholder="Filter zone..." />
+          </div>
+          <div class="right">
+            <button id="s_exportCsv">Export CSV</button>
+          </div>
+        </div>
+
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:16%;">Supplier</th>
+                <th style="width:16%;">Zone</th>
+                <th style="width:9%;">Quality</th>
+                <th style="width:9%;">Rate</th>
+                <th style="width:12%;">Effective</th>
+                <th style="width:20%;">CC Details</th>
+                <th>Additional Info</th>
+                <th style="width:16%;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="s_tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="body" style="padding-top:0;">
+          <div class="head" style="border:0; background:transparent; padding:0 0 10px;">
+            <h2>Quick Match (Business Case)</h2>
+            <div class="small">Match by Zone + Quality (and optional CC filters)</div>
+          </div>
+
+          <div class="row3">
+            <div>
+              <label>Zone</label>
+              <input id="m_zone" list="dl_zones" placeholder="Type a zone to match (e.g., Nigeria MTN)" />
+            </div>
+            <div>
+              <label>Quality</label>
+              <select id="m_quality">
+                <option value="">All qualities</option>
+                <option>CLI</option><option>NCLI</option><option>CC</option><option>TDM</option>
+                <option>OTP</option><option>Premium</option><option>Standard</option>
+              </select>
+            </div>
+            <div>
+              <label>CC Callback (optional)</label>
+              <select id="m_cc_callback">
+                <option value="">Any</option>
+                <option value="true">Required/Supported</option>
+                <option value="false">Not required</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row3" style="margin-top:10px;">
+            <div>
+              <label>CC Origin (optional)</label>
+              <input id="m_cc_origin" list="dl_cc_origins" placeholder="Filter origin/ANI (optional)" />
+            </div>
+            <div>
+              <label>CC Display (optional)</label>
+              <input id="m_cc_display" list="dl_cc_displays" placeholder="Filter display type (optional)" />
+            </div>
+            <div class="actions" style="justify-content:flex-start; margin-top:22px;">
+              <button class="primary" id="m_run">Run Match</button>
+              <button class="mutedBtn" id="m_clear">Clear</button>
+            </div>
+          </div>
+
+          <div class="tableWrap" style="padding:0; margin-top:10px;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:30%;">Customer Target</th>
+                  <th style="width:30%;">Supplier Route</th>
+                  <th style="width:12%;">Target</th>
+                  <th style="width:12%;">Supplier</th>
+                  <th style="width:16%;">Delta</th>
+                </tr>
+              </thead>
+              <tbody id="m_tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="footerNote" style="padding:10px 0 0;">
+            Delta = Supplier Rate − Customer Target. Negative delta indicates supplier is cheaper than target.
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <details class="card" open id="sec_lists">
+      <summary class="head">
+        <div class="headLeft">
+          <h2>Master Lists (Consistency)</h2>
+          <div class="small">Autocomplete + Optional strict mode</div>
+        </div>
+        <div class="chev">▾</div>
+      </summary>
+
+      <div class="cardContent">
+        <div class="body">
+          <div class="switch">
+            <input type="checkbox" id="strictToggle" />
+            <div>
+              <div><strong>Strict mode</strong></div>
+              <div class="small">When enabled, Customer/Supplier/Zone must exist in the master lists (prevents spelling variations).</div>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:12px;">
+            <div>
+              <label>Customers list (one per line)</label>
+              <textarea id="list_customers"></textarea>
+            </div>
+            <div>
+              <label>Suppliers list (one per line)</label>
+              <textarea id="list_suppliers"></textarea>
+            </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label>Zones list (one per line)</label>
+            <textarea id="list_zones"></textarea>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="row">
+            <div>
+              <label>CC Origins / Allowed ANI list (one per line)</label>
+              <textarea id="list_cc_origins"></textarea>
+            </div>
+            <div>
+              <label>CC Display Types list (one per line)</label>
+              <textarea id="list_cc_displays"></textarea>
+            </div>
+          </div>
+
+          <div class="actions" style="margin-top:12px;">
+            <button class="mutedBtn" id="lists_load">Load from DB</button>
+            <button class="primary" id="lists_save">Save Lists</button>
+            <button id="lists_merge">Merge from existing data</button>
+            <button class="danger" id="lists_clear">Clear Lists</button>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <details class="card" id="sec_backup">
+      <summary class="head">
+        <div class="headLeft">
+          <h2>Backup / Restore</h2>
+          <div class="small">Recommended for safety</div>
+        </div>
+        <div class="chev">▾</div>
+      </summary>
+
+      <div class="cardContent">
+        <div class="toolbar">
+          <div class="left">
+            <button id="exportJson" class="primary">Export JSON Backup</button>
+            <button id="importJson">Import JSON Backup</button>
+            <input class="fileInput" id="fileInput" type="file" accept="application/json" />
+          </div>
+          <div class="right">
+            <button id="wipeAll" class="danger">Delete All Data</button>
+          </div>
+        </div>
+        <div class="footerNote">
+          <div class="small mono">Storage key: voice_targets_routes_v3_cc</div>
+        </div>
+      </div>
+    </details>
 
   </div>
+</main>
+
+<div class="toast" id="toast">
+  <p class="t" id="toastTitle"></p>
+  <p class="s" id="toastSub"></p>
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════════
-let masterData    = [];
-let matchedGroups = [];
-let exportRows    = [];
-let templateWorkbook = null;
-let zonePeriods   = {};
-let currentSession = null;
-let autosaveTimer  = null;
+const KEY = "voice_targets_routes_v3_cc";
+const THEME_KEY = "voice_tracker_theme";
 
-// ─── Toast ───────────────────────────────────────────
-function showToast(msg, type) {
-  const t = document.createElement('div');
-  t.className = 'toast' + (type ? ' ' + type : '');
-  t.innerText = msg;
-  document.getElementById('toastContainer').appendChild(t);
-  setTimeout(() => { t.classList.add('fading'); setTimeout(() => t.remove(), 350); }, 2400);
-}
-
-// ─── Confirm on 2nd click ────────────────────────────
-function confirmAction(btn, action) {
-  if (btn.dataset.confirming === 'true') {
-    action();
-    btn.dataset.confirming = 'false';
-    btn.innerText = btn.dataset.orig;
-    btn.classList.remove('confirming');
-    clearTimeout(btn._ct);
-    return;
-  }
-  btn.dataset.orig = btn.innerText;
-  btn.dataset.confirming = 'true';
-  btn.innerText = 'Sure?';
-  btn.classList.add('confirming');
-  btn._ct = setTimeout(() => {
-    btn.dataset.confirming = 'false';
-    btn.innerText = btn.dataset.orig;
-    btn.classList.remove('confirming');
-  }, 3000);
-}
-
-// ─── Undo ────────────────────────────────────────────
-let lastSnapshot = null, undoTimer = null;
-
-function takeSnapshot(label) {
-  lastSnapshot = { rows: JSON.parse(JSON.stringify(exportRows)), label };
-  document.getElementById('undoMessage').innerText = `"${label}" — undo available`;
-  document.getElementById('undoBar').classList.add('visible');
-  clearTimeout(undoTimer);
-  undoTimer = setTimeout(() => { document.getElementById('undoBar').classList.remove('visible'); lastSnapshot = null; }, 8000);
-}
-
-document.getElementById('undoBtn').addEventListener('click', () => {
-  if (!lastSnapshot) return;
-  exportRows = lastSnapshot.rows;
-  document.getElementById('undoBar').classList.remove('visible');
-  lastSnapshot = null;
-  renderPreview();
-  showToast('Undone ↩', 'success');
-});
-
-// ═══════════════════════════════════════════════════════
-// DATE HELPERS
-// ═══════════════════════════════════════════════════════
-function setDate(days = 0) {
+function todayISO(){
   const d = new Date();
-  d.setDate(d.getDate() + days);
-  document.getElementById('effectiveDate').value = d.toISOString().split('T')[0];
-  document.getElementById('effectiveDate').min   = new Date().toISOString().split('T')[0];
+  const off = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - off*60*1000);
+  return local.toISOString().slice(0,10);
 }
-setDate(0);
-
-function formatDate(ds) {
-  const [y,m,d] = ds.split('-');
-  return `${m}/${d}/${y} 00:00`;
+function uid(){ return Math.random().toString(16).slice(2) + "-" + Date.now().toString(16); }
+function norm_(s){ return (s ?? "").toString().trim(); }
+function escapeHtml(str){
+  return (str ?? "").toString()
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
 }
-
-// Quick date buttons
-document.querySelectorAll('.quick-date-btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.quick-date-btn').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    setDate(parseInt(this.dataset.days));
-  });
-});
-
-// ═══════════════════════════════════════════════════════
-// AUTOSAVE
-// ═══════════════════════════════════════════════════════
-function triggerAutosave() {
-  if (!currentSession) return;
-  const dot  = document.getElementById('autosaveDot');
-  const text = document.getElementById('autosaveText');
-  dot.classList.add('saving');
-  text.innerText = 'Saving…';
-  clearTimeout(autosaveTimer);
-  autosaveTimer = setTimeout(() => {
-    saveCurrentSession();
-    dot.classList.remove('saving');
-    const now = new Date();
-    text.innerText = `Saved ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
-  }, 800);
+function toNumberMaybe(v){
+  const x = (v ?? "").toString().trim();
+  if(!x) return null;
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
 }
-
-function saveCurrentSession() {
-  if (!currentSession) return;
-  const sessions = getAllSessions();
-  sessions[currentSession] = {
-    exportRows:  JSON.parse(JSON.stringify(exportRows)),
-    zonePeriods: JSON.parse(JSON.stringify(zonePeriods)),
-    savedAt: new Date().toISOString()
-  };
-  localStorage.setItem('sessions', JSON.stringify(sessions));
+function toast(title, sub=""){
+  const t = document.getElementById("toast");
+  document.getElementById("toastTitle").textContent = title;
+  document.getElementById("toastSub").textContent = sub;
+  t.style.display = "block";
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=> t.style.display="none", 2600);
 }
-
-// ═══════════════════════════════════════════════════════
-// SESSION MANAGEMENT
-// ═══════════════════════════════════════════════════════
-function getAllSessions() {
-  try { return JSON.parse(localStorage.getItem('sessions') || '{}'); } catch { return {}; }
+function download(filename, content, mime){
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 800);
 }
-
-function refreshSessionDropdown(selectName) {
-  const dd = document.getElementById('sessionDropdown');
-  const sessions = getAllSessions();
-  const keys = Object.keys(sessions).sort();
-  dd.innerHTML = '';
-  if (keys.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = ''; opt.textContent = 'No sessions yet';
-    dd.appendChild(opt);
-  } else {
-    keys.forEach(name => {
-      const opt = document.createElement('option');
-      opt.value = name; opt.textContent = name;
-      dd.appendChild(opt);
-    });
+function csvEscape(val){
+  const s = (val ?? "").toString();
+  if (/[,"\n]/.test(s)) return `"${s.replaceAll('"','""')}"`;
+  return s;
+}
+function toCSV(rows, headers){
+  const head = headers.map(h => csvEscape(h.label)).join(",") + "\n";
+  const body = rows.map(r => headers.map(h => csvEscape(r[h.key])).join(",")).join("\n");
+  return head + body + "\n";
+}
+function rateBadge(delta){
+  if (delta === null) return `<span class="tag">N/A</span>`;
+  const cls = delta < 0 ? "ok" : (delta <= 0.002 ? "warn" : "bad");
+  const label = delta < 0 ? "Good" : (delta <= 0.002 ? "Tight" : "High");
+  return `<span class="tag ${cls}">${label}</span>`;
+}
+function uniqueSorted_(arr){
+  const out = []; const seen = new Set();
+  for(const x of arr){
+    const v = norm_(x);
+    if(!v) continue;
+    const k = v.toLowerCase();
+    if(seen.has(k)) continue;
+    seen.add(k);
+    out.push(v);
   }
-  if (selectName && keys.includes(selectName)) dd.value = selectName;
+  out.sort((a,b)=>a.localeCompare(b));
+  return out;
+}
+function inList_(value, list){
+  const v = norm_(value).toLowerCase();
+  return list.some(x => norm_(x).toLowerCase() === v);
+}
+function splitLines_(text){
+  return uniqueSorted_(String(text || "").split(/\r?\n/).map(s=>s.trim()).filter(Boolean));
+}
+function eqCI(a,b){ return norm_(a).toLowerCase() === norm_(b).toLowerCase(); }
+function ccSummary(obj){
+  if(!obj || obj.quality !== "CC") return "<span class='small'>—</span>";
+  const parts = [];
+  if(obj.ccOrigin) parts.push(`<div><span class="tag">Origin</span> ${escapeHtml(obj.ccOrigin)}</div>`);
+  if(obj.ccDisplay) parts.push(`<div><span class="tag">Display</span> ${escapeHtml(obj.ccDisplay)}</div>`);
+  if(obj.ccCallback === true) parts.push(`<div><span class="tag ok">Callback</span> Yes</div>`);
+  if(obj.ccCallback === false) parts.push(`<div><span class="tag">Callback</span> No</div>`);
+  if(obj.ccNotes) parts.push(`<div class="small" style="margin-top:6px;">${escapeHtml(obj.ccNotes)}</div>`);
+  return parts.join("");
 }
 
-function loadSessionByName(name) {
-  const sessions = getAllSessions();
-  const s = sessions[name];
-  if (!s) return;
-  exportRows  = JSON.parse(JSON.stringify(s.exportRows  || []));
-  zonePeriods = JSON.parse(JSON.stringify(s.zonePeriods || {}));
-  localStorage.setItem('zonePeriods', JSON.stringify(zonePeriods));
-  currentSession = name;
-  renderPreview();
-  renderExceptions();
-  updateExcBadge();
-  const dot  = document.getElementById('autosaveDot');
-  const text = document.getElementById('autosaveText');
-  dot.classList.remove('saving');
-  const saved = new Date(s.savedAt);
-  text.innerText = `Saved ${saved.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
-}
-
-// Switch session via dropdown
-document.getElementById('sessionDropdown').addEventListener('change', function() {
-  if (!this.value) return;
-  loadSessionByName(this.value);
-  showToast(`Session "${this.value}" loaded`, 'success');
-});
-
-// New session modal
-document.getElementById('btnNewSession').addEventListener('click', () => {
-  document.getElementById('newSessionName').value = '';
-  document.getElementById('newSessionModal').classList.add('open');
-  setTimeout(() => document.getElementById('newSessionName').focus(), 50);
-});
-
-document.getElementById('cancelNewSession').addEventListener('click', () => {
-  document.getElementById('newSessionModal').classList.remove('open');
-});
-
-document.getElementById('confirmNewSession').addEventListener('click', createNewSession);
-document.getElementById('newSessionName').addEventListener('keydown', e => { if (e.key === 'Enter') createNewSession(); });
-
-function createNewSession() {
-  const name = document.getElementById('newSessionName').value.trim();
-  if (!name) { showToast('Enter a session name', 'danger'); return; }
-  const sessions = getAllSessions();
-  if (sessions[name]) { showToast('Session name already exists', 'danger'); return; }
-  // Save blank session
-  sessions[name] = { exportRows: [], zonePeriods: {}, savedAt: new Date().toISOString() };
-  localStorage.setItem('sessions', JSON.stringify(sessions));
-  // Clear current state
-  exportRows  = [];
-  zonePeriods = {};
-  localStorage.setItem('zonePeriods', '{}');
-  currentSession = name;
-  refreshSessionDropdown(name);
-  document.getElementById('newSessionModal').classList.remove('open');
-  renderPreview();
-  renderExceptions();
-  updateExcBadge();
-  document.getElementById('autosaveText').innerText = 'Saved';
-  showToast(`Session "${name}" created ✓`, 'success');
-}
-
-// Delete session
-document.getElementById('btnDeleteSession').addEventListener('click', function() {
-  const name = document.getElementById('sessionDropdown').value;
-  if (!name) { showToast('No session selected', 'danger'); return; }
-  confirmAction(this, () => {
-    const sessions = getAllSessions();
-    delete sessions[name];
-    localStorage.setItem('sessions', JSON.stringify(sessions));
-    // load first remaining or clear
-    const remaining = Object.keys(sessions).sort();
-    exportRows = []; zonePeriods = {};
-    currentSession = null;
-    if (remaining.length > 0) {
-      refreshSessionDropdown(remaining[0]);
-      loadSessionByName(remaining[0]);
-    } else {
-      refreshSessionDropdown('');
-      renderPreview(); renderExceptions(); updateExcBadge();
-      document.getElementById('autosaveText').innerText = 'No session';
+function loadDB(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw){
+      return { customers: [], suppliers: [], lists: { customers: [], suppliers: [], zones: [], ccOrigins: [], ccDisplays: [] }, settings: { strictLists: false } };
     }
-    showToast(`Session "${name}" deleted`, 'danger');
+    const parsed = JSON.parse(raw);
+    const lists = parsed.lists || {};
+    const settings = parsed.settings || {};
+    return {
+      customers: Array.isArray(parsed.customers) ? parsed.customers : [],
+      suppliers: Array.isArray(parsed.suppliers) ? parsed.suppliers : [],
+      lists: {
+        customers: Array.isArray(lists.customers) ? lists.customers : [],
+        suppliers: Array.isArray(lists.suppliers) ? lists.suppliers : [],
+        zones: Array.isArray(lists.zones) ? lists.zones : [],
+        ccOrigins: Array.isArray(lists.ccOrigins) ? lists.ccOrigins : [],
+        ccDisplays: Array.isArray(lists.ccDisplays) ? lists.ccDisplays : [],
+      },
+      settings: { strictLists: !!settings.strictLists }
+    };
+  }catch(e){
+    return { customers: [], suppliers: [], lists: { customers: [], suppliers: [], zones: [], ccOrigins: [], ccDisplays: [] }, settings: { strictLists: false } };
+  }
+}
+function saveDB(db){ localStorage.setItem(KEY, JSON.stringify(db)); }
+let db = loadDB();
+
+/* Theme */
+const themeBtn = document.getElementById("themeToggle");
+function applyTheme(theme){
+  document.body.classList.toggle("light", theme === "light");
+  themeBtn.textContent = theme === "light" ? "Light" : "Dark";
+}
+function loadTheme(){
+  const saved = localStorage.getItem(THEME_KEY) || "dark";
+  applyTheme(saved);
+}
+themeBtn.addEventListener("click", () => {
+  const isLight = document.body.classList.contains("light");
+  const next = isLight ? "dark" : "light";
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+});
+
+/* Datalists */
+function fillDatalist_(id, values){
+  const dl = document.getElementById(id);
+  if(!dl) return;
+  dl.innerHTML = values.map(v => `<option value="${escapeHtml(v)}"></option>`).join("");
+}
+function refreshListsUI_(){
+  const customers = uniqueSorted_([...(db.lists.customers||[]), ...db.customers.map(c=>c.name)]);
+  const suppliers = uniqueSorted_([...(db.lists.suppliers||[]), ...db.suppliers.map(s=>s.name)]);
+  const zones     = uniqueSorted_([...(db.lists.zones||[]), ...db.customers.map(c=>c.zone), ...db.suppliers.map(s=>s.zone)]);
+  const ccOrigins = uniqueSorted_([...(db.lists.ccOrigins||[]), ...db.customers.map(c=>c.ccOrigin).filter(Boolean), ...db.suppliers.map(s=>s.ccOrigin).filter(Boolean)]);
+  const ccDisplays= uniqueSorted_([...(db.lists.ccDisplays||[]), ...db.customers.map(c=>c.ccDisplay).filter(Boolean), ...db.suppliers.map(s=>s.ccDisplay).filter(Boolean)]);
+  fillDatalist_("dl_customers", customers);
+  fillDatalist_("dl_suppliers", suppliers);
+  fillDatalist_("dl_zones", zones);
+  fillDatalist_("dl_cc_origins", ccOrigins);
+  fillDatalist_("dl_cc_displays", ccDisplays);
+}
+
+/* Render */
+function renderStats(){
+  document.getElementById("statsPill").textContent =
+    `Customers: ${db.customers.length} | Suppliers: ${db.suppliers.length} | Updated: ${new Date().toLocaleString()}`;
+}
+function matchText(item){
+  return ([
+    item.name, item.zone, item.quality, item.additionalInfo, item.status,
+    item.targetRate, item.rate, item.lastAskedDate, item.createdDate,
+    item.nextFollowUpDate, item.effectiveDate,
+    item.ccOrigin, item.ccDisplay, item.ccCallback, item.ccNotes
+  ].join(" ").toLowerCase());
+}
+function filterList(list, search, zone, quality){
+  const s = (search ?? "").trim().toLowerCase();
+  const z = (zone ?? "").trim().toLowerCase();
+  const q = (quality ?? "").trim().toLowerCase();
+  return list.filter(it => {
+    const t = matchText(it);
+    if (s && !t.includes(s)) return false;
+    if (z && !(it.zone ?? "").toLowerCase().includes(z)) return false;
+    if (q && (it.quality ?? "").toLowerCase() !== q) return false;
+    return true;
   });
-});
+}
+function renderCustomers(){
+  const tb = document.getElementById("c_tbody");
+  const list = filterList(
+    db.customers,
+    document.getElementById("c_search").value,
+    document.getElementById("c_filterZone").value,
+    document.getElementById("c_filterQuality").value
+  );
+  tb.innerHTML = list
+    .slice()
+    .sort((a,b)=> (b.createdDate ?? "").localeCompare(a.createdDate ?? ""))
+    .map(c => {
+      const target = (c.targetRate ?? null);
+      const targetTxt = target === null ? "" : Number(target).toFixed(6).replace(/0+$/,"").replace(/\.$/,"");
+      const dates = `
+        <div><span class="tag">Created</span> ${escapeHtml(c.createdDate || "")}</div>
+        <div style="margin-top:4px;"><span class="tag">Asked</span> ${escapeHtml(c.lastAskedDate || "")}</div>
+        ${c.nextFollowUpDate ? `<div style="margin-top:4px;"><span class="tag">Follow</span> ${escapeHtml(c.nextFollowUpDate)}</div>` : ""}
+        <div style="margin-top:4px;"><span class="tag">Status</span> ${escapeHtml(c.status || "")}</div>
+      `;
+      return `
+        <tr>
+          <td>${escapeHtml(c.name)}</td>
+          <td>${escapeHtml(c.zone)}</td>
+          <td>${escapeHtml(c.quality)}</td>
+          <td class="rate">${escapeHtml(targetTxt)}</td>
+          <td>${dates}</td>
+          <td>${ccSummary(c)}</td>
+          <td>${escapeHtml(c.additionalInfo || "")}</td>
+          <td>
+            <div class="miniActions">
+              <button onclick="askedTodayCustomer('${c.id}')">Asked Today</button>
+              <button onclick="editCustomer('${c.id}')">Edit</button>
+              <button class="danger" onclick="deleteCustomer('${c.id}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+  if(!tb.innerHTML){ tb.innerHTML = `<tr><td colspan="8" class="small">No customer targets found.</td></tr>`; }
+}
+function renderSuppliers(){
+  const tb = document.getElementById("s_tbody");
+  const list = filterList(
+    db.suppliers,
+    document.getElementById("s_search").value,
+    document.getElementById("s_filterZone").value,
+    document.getElementById("s_filterQuality").value
+  );
+  tb.innerHTML = list
+    .slice()
+    .sort((a,b)=> (b.createdDate ?? "").localeCompare(a.createdDate ?? ""))
+    .map(s => {
+      const rate = (s.rate ?? null);
+      const rateTxt = rate === null ? "" : Number(rate).toFixed(6).replace(/0+$/,"").replace(/\.$/,"");
+      return `
+        <tr>
+          <td>${escapeHtml(s.name)}</td>
+          <td>${escapeHtml(s.zone)}</td>
+          <td>${escapeHtml(s.quality)}</td>
+          <td class="rate">${escapeHtml(rateTxt)}</td>
+          <td>${escapeHtml(s.effectiveDate || "")}</td>
+          <td>${ccSummary(s)}</td>
+          <td>${escapeHtml(s.additionalInfo || "")}</td>
+          <td>
+            <div class="miniActions">
+              <button onclick="editSupplier('${s.id}')">Edit</button>
+              <button class="danger" onclick="deleteSupplier('${s.id}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+  if(!tb.innerHTML){ tb.innerHTML = `<tr><td colspan="8" class="small">No supplier routes found.</td></tr>`; }
+}
+function renderAll(){
+  renderStats();
+  renderCustomers();
+  renderSuppliers();
+  refreshListsUI_();
+}
 
-// ═══════════════════════════════════════════════════════
-// PERSISTENCE: master list, template, zone periods
-// ═══════════════════════════════════════════════════════
-function saveMasterList(data) { localStorage.setItem('masterData', JSON.stringify(data)); }
-
-function loadMasterList() {
-  try { masterData = JSON.parse(localStorage.getItem('masterData') || '[]'); } catch { masterData = []; }
-  if (masterData.length) {
-    document.getElementById('masterStatus').innerText = `✓ ${masterData.length} routes loaded`;
+/* CC visibility */
+function toggleCcBox(which){
+  const q = document.getElementById(which + "_quality").value;
+  const box = document.getElementById(which + "_ccBox");
+  const isCC = (q === "CC");
+  box.style.display = isCC ? "" : "none";
+  if(!isCC){
+    document.getElementById(which + "_cc_origin").value = "";
+    document.getElementById(which + "_cc_display").value = "";
+    document.getElementById(which + "_cc_callback").checked = false;
+    document.getElementById(which + "_cc_notes").value = "";
   }
 }
 
-function saveTemplate(data, name) {
-  localStorage.setItem('templateData', JSON.stringify(Array.from(new Uint8Array(data))));
-  localStorage.setItem('templateName', name);
+/* Forms */
+let editingCustomerId = null;
+let editingSupplierId = null;
+
+function clearCustomerForm(){
+  editingCustomerId = null;
+  ["c_name","c_zone","c_rate","c_lastAsked","c_nextFollow","c_info","c_cc_origin","c_cc_display","c_cc_notes"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("c_cc_callback").checked = false;
+  document.getElementById("c_quality").value="";
+  document.getElementById("c_status").value="Open";
+  document.getElementById("c_add").textContent = "Add Customer Target";
+  toggleCcBox("c");
+}
+function clearSupplierForm(){
+  editingSupplierId = null;
+  ["s_name","s_zone","s_rate","s_effective","s_info","s_cc_origin","s_cc_display","s_cc_notes"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("s_cc_callback").checked = false;
+  document.getElementById("s_quality").value="";
+  document.getElementById("s_add").textContent = "Add Supplier Route";
+  toggleCcBox("s");
 }
 
-function loadTemplate() {
-  const data = localStorage.getItem('templateData');
-  if (!data) return;
-  try {
-    templateWorkbook = XLSX.read(new Uint8Array(JSON.parse(data)), { type: 'array' });
-    document.getElementById('templateStatus').innerText = '✓ ' + localStorage.getItem('templateName');
-  } catch {}
-}
-
-function saveZonePeriod(zone, initial, recurring) {
-  if (Number(initial) === 1 && Number(recurring) === 1) {
-    delete zonePeriods[zone.toLowerCase()];
-  } else {
-    zonePeriods[zone.toLowerCase()] = { initial, recurring };
+function validateStrict_(name, zone, isCustomer){
+  if(!db.settings.strictLists) return true;
+  const listNames = isCustomer ? (db.lists.customers || []) : (db.lists.suppliers || []);
+  const listZones = db.lists.zones || [];
+  if(listNames.length && !inList_(name, listNames)){
+    toast("Strict mode block", (isCustomer ? "Customer" : "Supplier") + " name must exist in your master list.");
+    return false;
   }
-  localStorage.setItem('zonePeriods', JSON.stringify(zonePeriods));
-  renderExceptions();
-  updateExcBadge();
-  triggerAutosave();
-}
-
-// ═══════════════════════════════════════════════════════
-// GEAR / FILES DROPDOWN
-// ═══════════════════════════════════════════════════════
-document.getElementById('gearBtn').addEventListener('click', function(e) {
-  e.stopPropagation();
-  this.classList.toggle('open');
-  document.getElementById('filesDropdown').classList.toggle('open');
-});
-
-document.addEventListener('click', function(e) {
-  if (!e.target.closest('#gearBtn') && !e.target.closest('#filesDropdown')) {
-    document.getElementById('gearBtn').classList.remove('open');
-    document.getElementById('filesDropdown').classList.remove('open');
+  if(listZones.length && !inList_(zone, listZones)){
+    toast("Strict mode block", "Zone must exist in your master Zones list.");
+    return false;
   }
-});
-
-document.getElementById('masterFile').addEventListener('change', async function(e) {
-  const file = e.target.files[0]; if (!file) return;
-  const data = await file.arrayBuffer();
-  const wb   = XLSX.read(data);
-  const raw  = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
-  masterData = [];
-  raw.forEach((row, i) => {
-    if (i === 0 || !row[0] || !row[1]) return;
-    masterData.push({ code: String(row[0]).trim(), zone: String(row[1]).trim() });
-  });
-  saveMasterList(masterData);
-  document.getElementById('masterStatus').innerText = `✓ ${masterData.length} routes loaded`;
-  showToast(`Master list: ${masterData.length} routes ✓`, 'success');
-});
-
-document.getElementById('templateFile').addEventListener('change', async function(e) {
-  const file = e.target.files[0]; if (!file) return;
-  const data = await file.arrayBuffer();
-  templateWorkbook = XLSX.read(data);
-  saveTemplate(data, file.name);
-  document.getElementById('templateStatus').innerText = '✓ ' + file.name;
-  showToast('Template loaded ✓', 'success');
-});
-
-// ═══════════════════════════════════════════════════════
-// SEARCH & MATCH BOX
-// ═══════════════════════════════════════════════════════
-function getSelectedMatchZones() {
-  return Array.from(document.querySelectorAll('.match-checkbox:checked')).map(cb => cb.dataset.zone);
+  return true;
+}
+function collectCcFields(prefix){
+  const quality = norm_(document.getElementById(prefix + "_quality").value);
+  if(quality !== "CC"){
+    return { ccOrigin:"", ccDisplay:"", ccCallback:null, ccNotes:"" };
+  }
+  const ccOrigin = norm_(document.getElementById(prefix + "_cc_origin").value);
+  const ccDisplay = norm_(document.getElementById(prefix + "_cc_display").value);
+  const ccCallback = document.getElementById(prefix + "_cc_callback").checked;
+  const ccNotes = norm_(document.getElementById(prefix + "_cc_notes").value);
+  return { ccOrigin, ccDisplay, ccCallback, ccNotes };
 }
 
-function renderMatches() {
-  const box    = document.getElementById('matchBox');
-  const header = document.getElementById('matchHeader');
-  const countEl = document.getElementById('matchCount');
+function upsertCustomer(){
+  const name = norm_(document.getElementById("c_name").value);
+  const zone = norm_(document.getElementById("c_zone").value);
+  const quality = norm_(document.getElementById("c_quality").value);
+  const targetRate = toNumberMaybe(document.getElementById("c_rate").value);
+  const lastAskedDate = document.getElementById("c_lastAsked").value || "";
+  const nextFollowUpDate = document.getElementById("c_nextFollow").value || "";
+  const status = document.getElementById("c_status").value || "Open";
+  const additionalInfo = norm_(document.getElementById("c_info").value);
+  const cc = collectCcFields("c");
 
-  if (matchedGroups.length === 0) {
-    box.innerHTML = `<div class="match-empty">${document.getElementById('searchBox').value ? 'No matches found' : 'Type above to search destinations'}</div>`;
-    header.classList.remove('visible');
+  if(!name || !zone || !quality){
+    toast("Missing required fields", "Customer Name, Zone, and Quality are mandatory.");
     return;
   }
-
-  header.classList.add('visible');
-  const totalCodes = matchedGroups.reduce((s,g) => s + g.codes.length, 0);
-  countEl.innerText = `${matchedGroups.length} destination${matchedGroups.length!==1?'s':''} · ${totalCodes} codes`;
-
-  const tokens     = document.getElementById('searchBox').value.toLowerCase().split(' ').filter(t=>t);
-  const addedZones = new Set(exportRows.map(r => r.zone));
-
-  box.innerHTML = matchedGroups.map((group, i) => {
-    let zoneDisplay = group.zone;
-    tokens.forEach(tok => {
-      zoneDisplay = zoneDisplay.replace(new RegExp(`(${tok})`, 'ig'), '<span class="highlight">$1</span>');
-    });
-    const isAdded     = addedZones.has(group.zone);
-    const codePreview = group.codes.slice(0,5).join(', ') + (group.codes.length > 5 ? ` <span class="badge">+${group.codes.length-5}</span>` : '');
-    const alreadyBadge = isAdded ? `<span class="badge already">✓ added</span>` : '';
-    return `<div class="match-item" data-idx="${i}">
-      <input type="checkbox" class="match-checkbox" data-zone="${group.zone}">
-      <div style="flex:1;min-width:0;">
-        <div class="match-zone">${zoneDisplay} ${alreadyBadge}</div>
-        <div class="match-codes">${codePreview}</div>
-      </div>
-    </div>`;
-  }).join('');
-
-  box.querySelectorAll('.match-item').forEach(item => {
-    item.addEventListener('click', function(e) {
-      if (e.target.type === 'checkbox') return;
-      const cb = this.querySelector('.match-checkbox');
-      cb.checked = !cb.checked;
-      this.classList.toggle('selected', cb.checked);
-      updateSelectAllMatchState(); updateMatchCount();
-    });
-  });
-  box.querySelectorAll('.match-checkbox').forEach(cb => {
-    cb.addEventListener('change', function() {
-      this.closest('.match-item').classList.toggle('selected', this.checked);
-      updateSelectAllMatchState(); updateMatchCount();
-    });
-  });
-  document.getElementById('selectAllMatches').checked = false;
-  document.getElementById('selectAllMatches').indeterminate = false;
-}
-
-function updateSelectAllMatchState() {
-  const all = document.querySelectorAll('.match-checkbox');
-  const chk = document.querySelectorAll('.match-checkbox:checked');
-  const sa  = document.getElementById('selectAllMatches');
-  if (chk.length===0) { sa.checked=false; sa.indeterminate=false; }
-  else if (chk.length===all.length) { sa.checked=true; sa.indeterminate=false; }
-  else { sa.checked=false; sa.indeterminate=true; }
-}
-
-function updateMatchCount() {
-  const total = matchedGroups.length;
-  const totalCodes = matchedGroups.reduce((s,g)=>s+g.codes.length,0);
-  const sel   = document.querySelectorAll('.match-checkbox:checked').length;
-  let text = `${total} destination${total!==1?'s':''} · ${totalCodes} codes`;
-  if (sel > 0) {
-    const selCodes = matchedGroups.filter(g => getSelectedMatchZones().includes(g.zone)).reduce((s,g)=>s+g.codes.length,0);
-    text += ` — ${sel} selected · ${selCodes} codes`;
+  if (document.getElementById("c_rate").value.trim() && targetRate === null){
+    toast("Invalid rate", "Target Rate must be numeric (e.g., 0.055).");
+    return;
   }
-  document.getElementById('matchCount').innerText = text;
-}
+  if(!validateStrict_(name, zone, true)) return;
 
-document.getElementById('selectAllMatches').addEventListener('change', function() {
-  document.querySelectorAll('.match-checkbox').forEach(cb => {
-    cb.checked = this.checked;
-    cb.closest('.match-item').classList.toggle('selected', this.checked);
-  });
-  updateMatchCount();
-});
-
-let searchTimeout;
-document.getElementById('searchBox').addEventListener('input', function() {
-  clearTimeout(searchTimeout);
-  const value = this.value.toLowerCase().trim();
-  searchTimeout = setTimeout(() => {
-    if (!value) { matchedGroups = []; renderMatches(); return; }
-    const tokens = value.split(' ').filter(t => t);
-    const groupMap = {};
-    masterData.filter(row => {
-      const z = row.zone.toLowerCase(), c = row.code.toLowerCase();
-      return tokens.every(t => z.includes(t) || c.includes(t));
-    }).forEach(row => {
-      if (!groupMap[row.zone]) groupMap[row.zone] = { zone: row.zone, codes: [] };
-      groupMap[row.zone].codes.push(row.code);
-    });
-    matchedGroups = Object.values(groupMap);
-    renderMatches();
-  }, 150);
-});
-
-// ═══════════════════════════════════════════════════════
-// ADD / UPDATE
-// ═══════════════════════════════════════════════════════
-document.getElementById('addBtn').addEventListener('click', function() {
-  const rate = document.getElementById('rate').value;
-  if (!rate) { showToast('Please enter a rate', 'danger'); return; }
-  const effectiveDate = document.getElementById('effectiveDate').value;
-  const today = new Date().toISOString().split('T')[0];
-  if (effectiveDate < today) { showToast('Date cannot be in the past', 'danger'); return; }
-  const selectedZones = getSelectedMatchZones();
-  if (selectedZones.length === 0) { showToast('Select at least one destination', 'danger'); return; }
-
-  let added = 0, updated = 0;
-  matchedGroups.filter(g => selectedZones.includes(g.zone)).forEach(group => {
-    const saved = zonePeriods[group.zone.toLowerCase()];
-    let initial = saved ? saved.initial : document.getElementById('initialPeriod').value;
-    let recurring = saved ? saved.recurring : document.getElementById('recurringPeriod').value;
-    if (!saved) saveZonePeriod(group.zone, initial, recurring);
-    group.codes.forEach(code => {
-      const ex = exportRows.find(x => x.zone === group.zone && x.code === code);
-      if (ex) { ex.rate = rate; ex.effectiveDate = effectiveDate; ex.initial = initial; ex.recurring = recurring; updated++; }
-      else { exportRows.push({ zone: group.zone, code, rate, effectiveDate, initial, recurring }); added++; }
-    });
-  });
-
-  renderPreview(); renderMatches();
-  triggerAutosave();
-  showToast(`Added ${added}, updated ${updated} codes ✓`, 'success');
-});
-
-document.getElementById('clearMatchesBtn').addEventListener('click', () => {
-  matchedGroups = [];
-  document.getElementById('searchBox').value = '';
-  renderMatches();
-});
-
-// ═══════════════════════════════════════════════════════
-// PREVIEW
-// ═══════════════════════════════════════════════════════
-function getPreviewGroups() {
-  const grouped = {};
-  exportRows.forEach(r => {
-    if (!grouped[r.zone]) grouped[r.zone] = { zone:r.zone, codes:[], rate:r.rate, effectiveDate:r.effectiveDate, initial:r.initial, recurring:r.recurring };
-    grouped[r.zone].codes.push(r.code);
-  });
-  return Object.values(grouped);
-}
-
-function renderPreview() {
-  const body   = document.getElementById('previewBody');
-  const groups = getPreviewGroups();
-
-  // stats
-  const uniqueRates = new Set(exportRows.map(r => r.rate)).size;
-  document.getElementById('statDest').innerText  = groups.length;
-  document.getElementById('statCodes').innerText = exportRows.length;
-  document.getElementById('statRates').innerText = uniqueRates;
-
-  if (groups.length === 0) {
-    body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--gray-400);font-size:13px;">No routes added yet</td></tr>`;
-    document.getElementById('selectAllPreview').checked = false;
-    updateBulkBar(); return;
+  if(editingCustomerId){
+    const idx = db.customers.findIndex(x=>x.id===editingCustomerId);
+    if(idx >= 0){
+      db.customers[idx] = {...db.customers[idx], name, zone, quality, targetRate, lastAskedDate, nextFollowUpDate, status, additionalInfo, ...cc, updatedAt: new Date().toISOString()};
+      saveDB(db);
+      toast("Customer updated");
+      clearCustomerForm();
+      renderAll();
+      return;
+    }
   }
 
-  body.innerHTML = groups.map((group, i) => {
-    const codePreview = group.codes.slice(0,3).join(', ') + (group.codes.length>3?` <span class="badge">+${group.codes.length-3}</span>`:'');
-    return `<tr>
-      <td><input type="checkbox" class="preview-checkbox" data-zone="${group.zone}"></td>
-      <td class="row-num">${i+1}</td>
-      <td style="font-weight:600;">${group.zone}</td>
-      <td style="font-family:var(--mono);font-size:12px;">${codePreview}</td>
-      <td><input class="preview-input" value="${group.rate}" data-zone="${group.zone}" data-field="rate"></td>
-      <td><input type="date" class="preview-input" value="${group.effectiveDate}" data-zone="${group.zone}" data-field="effectiveDate"></td>
-      <td><input class="preview-input" value="${group.initial}" data-zone="${group.zone}" data-field="initial" style="width:50px;"></td>
-      <td><input class="preview-input" value="${group.recurring}" data-zone="${group.zone}" data-field="recurring" style="width:50px;"></td>
-      <td><button class="btn btn-danger btn-sm delete-row-btn" data-zone="${group.zone}" style="padding:4px 8px;font-size:11px;">✕</button></td>
-    </tr>`;
-  }).join('');
-
-  body.querySelectorAll('.preview-checkbox').forEach(cb => cb.addEventListener('change', updateBulkBar));
-  document.getElementById('selectAllPreview').checked = false;
-  document.getElementById('selectAllPreview').indeterminate = false;
-  updateBulkBar();
+  db.customers.push({id: uid(), name, zone, quality, targetRate, lastAskedDate, nextFollowUpDate, status, additionalInfo, ...cc, createdDate: todayISO(), updatedAt: new Date().toISOString()});
+  saveDB(db);
+  toast("Customer target added");
+  clearCustomerForm();
+  renderAll();
 }
 
-function getSelectedPreviewZones() {
-  return Array.from(document.querySelectorAll('.preview-checkbox:checked')).map(cb => cb.dataset.zone);
-}
+function upsertSupplier(){
+  const name = norm_(document.getElementById("s_name").value);
+  const zone = norm_(document.getElementById("s_zone").value);
+  const quality = norm_(document.getElementById("s_quality").value);
+  const rate = toNumberMaybe(document.getElementById("s_rate").value);
+  const effectiveDate = document.getElementById("s_effective").value || "";
+  const additionalInfo = norm_(document.getElementById("s_info").value);
+  const cc = collectCcFields("s");
 
-function updateBulkBar() {
-  const sel  = getSelectedPreviewZones();
-  const bar  = document.getElementById('bulkBar');
-  const info = document.getElementById('bulkInfo');
-  bar.classList.toggle('visible', sel.length > 0);
-  if (sel.length > 0) info.innerText = `${sel.length} destination${sel.length!==1?'s':''} selected`;
-  const all = document.querySelectorAll('.preview-checkbox');
-  const chk = document.querySelectorAll('.preview-checkbox:checked');
-  const sa  = document.getElementById('selectAllPreview');
-  if (!all.length || !chk.length) { sa.checked=false; sa.indeterminate=false; }
-  else if (chk.length===all.length) { sa.checked=true; sa.indeterminate=false; }
-  else { sa.checked=false; sa.indeterminate=true; }
-}
-
-document.getElementById('selectAllPreview').addEventListener('change', function() {
-  document.querySelectorAll('.preview-checkbox').forEach(cb => { cb.checked = this.checked; });
-  updateBulkBar();
-});
-
-document.getElementById('applyBulkBtn').addEventListener('click', function() {
-  const zones    = getSelectedPreviewZones();
-  if (!zones.length) { showToast('No rows selected', 'danger'); return; }
-  const bulkRate = document.getElementById('bulkRate').value.trim();
-  const bulkDate = document.getElementById('bulkDate').value;
-  if (!bulkRate && !bulkDate) { showToast('Enter rate or date to apply', 'danger'); return; }
-  if (bulkDate && bulkDate < new Date().toISOString().split('T')[0]) { showToast('Date cannot be in the past', 'danger'); return; }
-  takeSnapshot(`Bulk edit ${zones.length} destinations`);
-  exportRows.forEach(r => {
-    if (zones.includes(r.zone)) { if (bulkRate) r.rate=bulkRate; if (bulkDate) r.effectiveDate=bulkDate; }
-  });
-  document.getElementById('bulkRate').value = '';
-  document.getElementById('bulkDate').value = '';
-  renderPreview(); triggerAutosave();
-  showToast(`Applied to ${zones.length} destination${zones.length!==1?'s':''} ✓`, 'success');
-});
-
-document.getElementById('deleteSelectedBtn').addEventListener('click', function() {
-  const zones = getSelectedPreviewZones();
-  if (!zones.length) { showToast('No rows selected', 'danger'); return; }
-  confirmAction(this, () => {
-    takeSnapshot(`Delete ${zones.length} destinations`);
-    exportRows = exportRows.filter(r => !zones.includes(r.zone));
-    renderPreview(); triggerAutosave();
-    showToast(`Deleted ${zones.length} destination${zones.length!==1?'s':''}`, 'danger');
-  });
-});
-
-// Preview: inline edit + row delete
-document.getElementById('previewBody').addEventListener('change', function(e) {
-  const input = e.target.closest('input[data-zone][data-field]');
-  if (!input) return;
-  const zone=input.dataset.zone, field=input.dataset.field, value=input.value;
-  if (field==='effectiveDate' && value < new Date().toISOString().split('T')[0]) {
-    showToast('Date cannot be in the past', 'danger'); renderPreview(); return;
+  if(!name || !zone || !quality){
+    toast("Missing required fields", "Supplier Name, Zone, and Quality are mandatory.");
+    return;
   }
-  exportRows.forEach(r => { if (r.zone===zone) r[field]=value; });
-  if (field==='initial'||field==='recurring') {
-    const row = exportRows.find(r=>r.zone===zone);
-    saveZonePeriod(zone, row.initial, row.recurring);
+  if (document.getElementById("s_rate").value.trim() && rate === null){
+    toast("Invalid rate", "Rate must be numeric (e.g., 0.063).");
+    return;
   }
-  renderPreview(); triggerAutosave();
-});
+  if(!validateStrict_(name, zone, false)) return;
 
-document.getElementById('previewBody').addEventListener('click', function(e) {
-  const btn = e.target.closest('.delete-row-btn');
-  if (!btn) return;
-  confirmAction(btn, () => {
-    takeSnapshot(`Delete "${btn.dataset.zone}"`);
-    exportRows = exportRows.filter(r => r.zone!==btn.dataset.zone);
-    renderPreview(); triggerAutosave();
-    showToast(`Deleted "${btn.dataset.zone}"`, 'danger');
-  });
-});
-
-document.getElementById('clearAllBtn').addEventListener('click', function() {
-  confirmAction(this, () => {
-    takeSnapshot('Clear All');
-    exportRows = []; renderPreview(); triggerAutosave();
-    showToast('All routes cleared', 'danger');
-  });
-});
-
-// ═══════════════════════════════════════════════════════
-// EXCEPTIONS
-// ═══════════════════════════════════════════════════════
-function updateExcBadge() {
-  document.getElementById('excCountBadge').innerText = Object.keys(zonePeriods).length;
-}
-
-function renderExceptions() {
-  const body   = document.getElementById('excTableBody');
-  const search = (document.getElementById('exceptionsSearch')?.value || '').toLowerCase().trim();
-  let html = '';
-  Object.keys(zonePeriods).sort().forEach(zone => {
-    if (search && !zone.includes(search)) return;
-    const p = zonePeriods[zone];
-    html += `<tr>
-      <td style="font-weight:500;">${zone}</td>
-      <td style="font-family:var(--mono);">${p.initial}</td>
-      <td style="font-family:var(--mono);">${p.recurring}</td>
-      <td><button class="btn btn-danger btn-sm delete-exc-btn" data-zone="${zone}" style="padding:4px 8px;font-size:11px;">✕</button></td>
-    </tr>`;
-  });
-  body.innerHTML = html || `<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--gray-400);font-size:13px;">No exceptions</td></tr>`;
-  updateExcBadge();
-}
-
-document.getElementById('excTableBody').addEventListener('click', function(e) {
-  const btn = e.target.closest('.delete-exc-btn');
-  if (!btn) return;
-  confirmAction(btn, () => {
-    delete zonePeriods[btn.dataset.zone];
-    localStorage.setItem('zonePeriods', JSON.stringify(zonePeriods));
-    renderExceptions(); triggerAutosave();
-    showToast(`Exception "${btn.dataset.zone}" deleted`, 'danger');
-  });
-});
-
-document.getElementById('exceptionsToggle').addEventListener('click', function() {
-  const body    = document.getElementById('exceptionsBody');
-  const chevron = document.getElementById('excChevron');
-  const open    = body.classList.toggle('open');
-  chevron.style.transform = open ? 'rotate(180deg)' : '';
-});
-
-document.getElementById('exceptionsSearch').addEventListener('input', renderExceptions);
-
-document.getElementById('deleteFilteredBtn').addEventListener('click', function() {
-  const search = document.getElementById('exceptionsSearch').value.toLowerCase().trim();
-  if (!search) { showToast('Search first to filter', 'danger'); return; }
-  const matches = Object.keys(zonePeriods).filter(z => z.includes(search));
-  if (!matches.length) { showToast('No matches', 'danger'); return; }
-  confirmAction(this, () => {
-    matches.forEach(z => delete zonePeriods[z]);
-    localStorage.setItem('zonePeriods', JSON.stringify(zonePeriods));
-    renderExceptions(); triggerAutosave();
-    showToast(`Deleted ${matches.length} exception(s)`, 'danger');
-  });
-});
-
-// ═══════════════════════════════════════════════════════
-// EXPORT
-// ═══════════════════════════════════════════════════════
-document.getElementById('exportBtn').addEventListener('click', function() {
-  if (!templateWorkbook) { showToast('Upload a template first (⚙ gear)', 'danger'); return; }
-  if (!exportRows.length) { showToast('Nothing to export', 'danger'); return; }
-
-  const startRow = parseInt(document.getElementById('startRowInput').value) || 17;
-  const wbCopy   = XLSX.read(XLSX.write(templateWorkbook, { type:'array', bookType:'xlsx' }), { type:'array' });
-  const ws       = wbCopy.Sheets[wbCopy.SheetNames[0]];
-
-  for (let i = startRow; i < startRow + 10000; i++) {
-    ['A','B','C','D','E','F','G'].forEach(col => { delete ws[col+i]; });
+  if(editingSupplierId){
+    const idx = db.suppliers.findIndex(x=>x.id===editingSupplierId);
+    if(idx >= 0){
+      db.suppliers[idx] = {...db.suppliers[idx], name, zone, quality, rate, effectiveDate, additionalInfo, ...cc, updatedAt: new Date().toISOString()};
+      saveDB(db);
+      toast("Supplier updated");
+      clearSupplierForm();
+      renderAll();
+      return;
+    }
   }
 
-  exportRows.forEach((r, idx) => {
-    const row = startRow + idx;
-    ws['A'+row] = { t:'s', v:r.zone };
-    ws['B'+row] = { t:'s', v:r.code };
-    ws['C'+row] = { t:'n', v:Number(r.rate) };
-    ws['D'+row] = { t:'s', v:'' };
-    ws['E'+row] = { t:'s', v:formatDate(r.effectiveDate) };
-    ws['F'+row] = { t:'n', v:Number(r.initial) };
-    ws['G'+row] = { t:'n', v:Number(r.recurring) };
-  });
-
-  ws['!ref'] = `A1:G${startRow + exportRows.length}`;
-
-  const name = document.getElementById('exportFileName').value.trim() || 'Ratesheet';
-  const now  = new Date();
-  const ts   = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-  XLSX.writeFile(wbCopy, `${name}_${ts}.xlsx`);
-  showToast(`Exported: ${name}_${ts}.xlsx ✓`, 'success');
-});
-
-// ═══════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════
-loadMasterList();
-loadTemplate();
-
-// Load sessions — pick most recent or first
-const initSessions = getAllSessions();
-const initKeys     = Object.keys(initSessions).sort();
-refreshSessionDropdown(initKeys[0] || '');
-
-if (initKeys.length > 0) {
-  loadSessionByName(initKeys[0]);
-} else {
-  zonePeriods = {};
-  renderPreview();
-  renderExceptions();
-  updateExcBadge();
-  document.getElementById('autosaveText').innerText = 'No session';
+  db.suppliers.push({id: uid(), name, zone, quality, rate, effectiveDate, additionalInfo, ...cc, createdDate: todayISO(), updatedAt: new Date().toISOString()});
+  saveDB(db);
+  toast("Supplier route added");
+  clearSupplierForm();
+  renderAll();
 }
 
+/* Actions */
+window.deleteCustomer = function(id){
+  if(!confirm("Delete this customer target?")) return;
+  db.customers = db.customers.filter(x=>x.id!==id);
+  saveDB(db);
+  toast("Customer deleted");
+  if(editingCustomerId === id) clearCustomerForm();
+  renderAll();
+};
+window.deleteSupplier = function(id){
+  if(!confirm("Delete this supplier route?")) return;
+  db.suppliers = db.suppliers.filter(x=>x.id!==id);
+  saveDB(db);
+  toast("Supplier deleted");
+  if(editingSupplierId === id) clearSupplierForm();
+  renderAll();
+};
+window.editCustomer = function(id){
+  const c = db.customers.find(x=>x.id===id);
+  if(!c) return;
+  editingCustomerId = id;
+
+  document.getElementById("c_name").value = c.name || "";
+  document.getElementById("c_zone").value = c.zone || "";
+  document.getElementById("c_quality").value = c.quality || "";
+  document.getElementById("c_rate").value = (c.targetRate ?? "");
+  document.getElementById("c_lastAsked").value = c.lastAskedDate || "";
+  document.getElementById("c_nextFollow").value = c.nextFollowUpDate || "";
+  document.getElementById("c_status").value = c.status || "Open";
+  document.getElementById("c_info").value = c.additionalInfo || "";
+
+  document.getElementById("c_cc_origin").value = c.ccOrigin || "";
+  document.getElementById("c_cc_display").value = c.ccDisplay || "";
+  document.getElementById("c_cc_callback").checked = (c.ccCallback === true);
+  document.getElementById("c_cc_notes").value = c.ccNotes || "";
+
+  document.getElementById("c_add").textContent = "Save Customer Target";
+  toggleCcBox("c");
+  window.scrollTo({top:0, behavior:"smooth"});
+  toast("Editing customer", c.name);
+};
+window.editSupplier = function(id){
+  const s = db.suppliers.find(x=>x.id===id);
+  if(!s) return;
+  editingSupplierId = id;
+
+  document.getElementById("s_name").value = s.name || "";
+  document.getElementById("s_zone").value = s.zone || "";
+  document.getElementById("s_quality").value = s.quality || "";
+  document.getElementById("s_rate").value = (s.rate ?? "");
+  document.getElementById("s_effective").value = s.effectiveDate || "";
+  document.getElementById("s_info").value = s.additionalInfo || "";
+
+  document.getElementById("s_cc_origin").value = s.ccOrigin || "";
+  document.getElementById("s_cc_display").value = s.ccDisplay || "";
+  document.getElementById("s_cc_callback").checked = (s.ccCallback === true);
+  document.getElementById("s_cc_notes").value = s.ccNotes || "";
+
+  document.getElementById("s_add").textContent = "Save Supplier Route";
+  toggleCcBox("s");
+  toast("Editing supplier", s.name);
+};
+window.askedTodayCustomer = function(id){
+  const idx = db.customers.findIndex(x=>x.id===id);
+  if(idx<0) return;
+  db.customers[idx].lastAskedDate = todayISO();
+  db.customers[idx].updatedAt = new Date().toISOString();
+  saveDB(db);
+  toast("Updated last asked date", db.customers[idx].name);
+  renderAll();
+};
+
+/* Match */
+function runMatch(){
+  // Zone matching rule:
+  // - If m_zone is provided: filter records whose zone contains the input (helps typing),
+  //   BUT pairings will still require EXACT zone equality (case-insensitive) between customer and supplier.
+  // - If m_zone is empty: do NOT cross-match zones; only match customer targets to supplier routes with the SAME zone.
+  const zoneInput = norm_(document.getElementById("m_zone").value);
+  const zoneInputLC = zoneInput.toLowerCase();
+  const quality = norm_(document.getElementById("m_quality").value);
+  const mCb = document.getElementById("m_cc_callback").value; // "", "true", "false"
+  const mOrigin = norm_(document.getElementById("m_cc_origin").value);
+  const mDisplay = norm_(document.getElementById("m_cc_display").value);
+
+  const zoneFilterActive = !!zoneInputLC;
+
+  // 1) Filter customers (optional zone input filter + optional quality + optional CC filters)
+  const cust = db.customers.filter(c => {
+    if(zoneFilterActive){
+      if(!(c.zone || "").toLowerCase().includes(zoneInputLC)) return false;
+    }
+    if(quality && (c.quality || "") !== quality) return false;
+
+    // Optional CC filters (apply when matching CC specifically OR when the user set CC filters)
+    if(quality === "CC" || (!quality && (mCb || mOrigin || mDisplay))){
+      if(mCb){
+        const want = (mCb === "true");
+        if((c.ccCallback === true) !== want) return false;
+      }
+      if(mOrigin && !eqCI(c.ccOrigin, mOrigin)) return false;
+      if(mDisplay && !eqCI(c.ccDisplay, mDisplay)) return false;
+    }
+    return true;
+  });
+
+  // 2) Filter suppliers (optional zone input filter + optional quality + optional CC filters)
+  const supp = db.suppliers.filter(s => {
+    if(zoneFilterActive){
+      if(!(s.zone || "").toLowerCase().includes(zoneInputLC)) return false;
+    }
+    if(quality && (s.quality || "") !== quality) return false;
+
+    if(quality === "CC" || (!quality && (mCb || mOrigin || mDisplay))){
+      if(mCb){
+        const want = (mCb === "true");
+        if((s.ccCallback === true) !== want) return false;
+      }
+      if(mOrigin && !eqCI(s.ccOrigin, mOrigin)) return false;
+      if(mDisplay && !eqCI(s.ccDisplay, mDisplay)) return false;
+    }
+    return true;
+  });
+
+  // 3) Pair ONLY same-zone (case-insensitive exact)
+  const rows = [];
+  for(const c of cust){
+    for(const s of supp){
+      // quality pairing (if the user chose a quality, both lists already filtered,
+      // but keep this for safety when 'All qualities' is used)
+      if(quality && c.quality !== s.quality) continue;
+
+      // KEY FIX: enforce exact zone match between customer and supplier
+      if(!eqCI(c.zone, s.zone)) continue;
+
+      // If CC and user set CC filters, ensure both satisfy them consistently
+      if((c.quality === "CC") && (s.quality === "CC")){
+        if(mCb){
+          const want = (mCb === "true");
+          if((c.ccCallback === true) !== want) continue;
+          if((s.ccCallback === true) !== want) continue;
+        }
+        if(mOrigin && (!eqCI(c.ccOrigin, mOrigin) || !eqCI(s.ccOrigin, mOrigin))) continue;
+        if(mDisplay && (!eqCI(c.ccDisplay, mDisplay) || !eqCI(s.ccDisplay, mDisplay))) continue;
+      }
+
+      const t = (c.targetRate ?? null);
+      const r = (s.rate ?? null);
+      const delta = (t !== null && r !== null) ? (r - t) : null;
+      rows.push({c, s, t, r, delta});
+    }
+  }
+
+  // 4) Sort by best delta (cheapest vs target first)
+  rows.sort((a,b)=>{
+    const ad = a.delta ?? 9999;
+    const bd = b.delta ?? 9999;
+    return ad - bd;
+  });
+
+  const tb = document.getElementById("m_tbody");
+  tb.innerHTML = rows.slice(0, 200).map(x=>{
+    const t = x.t === null ? "" : Number(x.t).toFixed(6).replace(/0+$/,"").replace(/\.$/,"");
+    const r = x.r === null ? "" : Number(x.r).toFixed(6).replace(/0+$/,"").replace(/\.$/,"");
+    const d = x.delta === null ? "" : (x.delta >= 0 ? "+" : "") + x.delta.toFixed(6).replace(/0+$/,"").replace(/\.$/,"");
+    return `
+      <tr>
+        <td>
+          <div><strong>${escapeHtml(x.c.name)}</strong></div>
+          <div class="small">${escapeHtml(x.c.zone)} · ${escapeHtml(x.c.quality)}</div>
+        </td>
+        <td>
+          <div><strong>${escapeHtml(x.s.name)}</strong></div>
+          <div class="small">${escapeHtml(x.s.zone)} · ${escapeHtml(x.s.quality)}</div>
+        </td>
+        <td class="rate">${escapeHtml(t)}</td>
+        <td class="rate">${escapeHtml(r)}</td>
+        <td class="rate">
+          ${rateBadge(x.delta)}
+          ${escapeHtml(d)}
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  if(!tb.innerHTML){
+    const msg = zoneFilterActive
+      ? "No matches found for this zone/quality (matching requires exact same zone between customer and supplier)."
+      : "No matches found. Note: matching is SAME-ZONE only (Nigeria MTN will not match Kenya Safaricom).";
+    tb.innerHTML = `<tr><td colspan="5" class="small">${escapeHtml(msg)}</td></tr>`;
+  } else {
+    toast("Match complete", `Found ${rows.length} same-zone pair(s). Showing up to 200.`);
+  }
+}
+
+/* CSV */
+function exportCustomersCSV(){
+  const rows = db.customers.map(c => ({
+    customer_name: c.name || "",
+    zone: c.zone || "",
+    quality: c.quality || "",
+    target_rate: c.targetRate ?? "",
+    last_asked_date: c.lastAskedDate || "",
+    next_followup_date: c.nextFollowUpDate || "",
+    status: c.status || "",
+    cc_origin: c.ccOrigin || "",
+    cc_display: c.ccDisplay || "",
+    cc_callback: c.ccCallback === true ? "Yes" : (c.quality === "CC" ? "No" : ""),
+    cc_notes: c.ccNotes || "",
+    additional_info: c.additionalInfo || ""
+  }));
+  const headers = [
+    {key:"customer_name", label:"customer_name"},
+    {key:"zone", label:"zone"},
+    {key:"quality", label:"quality"},
+    {key:"target_rate", label:"target_rate"},
+    {key:"last_asked_date", label:"last_asked_date"},
+    {key:"next_followup_date", label:"next_followup_date"},
+    {key:"status", label:"status"},
+    {key:"cc_origin", label:"cc_origin"},
+    {key:"cc_display", label:"cc_display"},
+    {key:"cc_callback", label:"cc_callback"},
+    {key:"cc_notes", label:"cc_notes"},
+    {key:"additional_info", label:"additional_info"},
+  ];
+  download(`customers-targets-${todayISO()}.csv`, toCSV(rows, headers), "text/csv;charset=utf-8");
+  toast("Exported customers CSV");
+}
+function exportSuppliersCSV(){
+  const rows = db.suppliers.map(s => ({
+    supplier_name: s.name || "",
+    zone: s.zone || "",
+    quality: s.quality || "",
+    rate: s.rate ?? "",
+    effective_date: s.effectiveDate || "",
+    cc_origin: s.ccOrigin || "",
+    cc_display: s.ccDisplay || "",
+    cc_callback: s.ccCallback === true ? "Yes" : (s.quality === "CC" ? "No" : ""),
+    cc_notes: s.ccNotes || "",
+    additional_info: s.additionalInfo || ""
+  }));
+  const headers = [
+    {key:"supplier_name", label:"supplier_name"},
+    {key:"zone", label:"zone"},
+    {key:"quality", label:"quality"},
+    {key:"rate", label:"rate"},
+    {key:"effective_date", label:"effective_date"},
+    {key:"cc_origin", label:"cc_origin"},
+    {key:"cc_display", label:"cc_display"},
+    {key:"cc_callback", label:"cc_callback"},
+    {key:"cc_notes", label:"cc_notes"},
+    {key:"additional_info", label:"additional_info"},
+  ];
+  download(`suppliers-routes-${todayISO()}.csv`, toCSV(rows, headers), "text/csv;charset=utf-8");
+  toast("Exported suppliers CSV");
+}
+
+/* JSON Backup */
+function exportJSON(){
+  const payload = { exportedAt: new Date().toISOString(), app: "Voice Targets & Routes Tracker (Local + CC)", version: 3, data: db };
+  download(`targets-backup-${todayISO()}.json`, JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
+  toast("Exported JSON backup");
+}
+function importJSONFile(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+      const data = parsed.data ?? parsed;
+      if(!data || !Array.isArray(data.customers) || !Array.isArray(data.suppliers)){
+        toast("Invalid backup file", "Expected customers[] and suppliers[].");
+        return;
+      }
+      db = {
+        customers: data.customers,
+        suppliers: data.suppliers,
+        lists: data.lists || { customers: [], suppliers: [], zones: [], ccOrigins: [], ccDisplays: [] },
+        settings: data.settings || { strictLists: false }
+      };
+      db.lists.ccOrigins = db.lists.ccOrigins || [];
+      db.lists.ccDisplays = db.lists.ccDisplays || [];
+      saveDB(db);
+      toast("Backup imported", "Data restored successfully.");
+      clearCustomerForm();
+      clearSupplierForm();
+      loadListsToUI();
+      renderAll();
+    }catch(e){
+      toast("Import failed", "Could not parse JSON.");
+    }
+  };
+  reader.readAsText(file);
+}
+function wipeAll(){
+  if(!confirm("Delete ALL stored data? This cannot be undone.")) return;
+  db = { customers: [], suppliers: [], lists: { customers: [], suppliers: [], zones: [], ccOrigins: [], ccDisplays: [] }, settings: { strictLists: false } };
+  saveDB(db);
+  toast("All data deleted");
+  clearCustomerForm();
+  clearSupplierForm();
+  loadListsToUI();
+  renderAll();
+}
+
+/* Lists UI */
+function loadListsToUI(){
+  document.getElementById("list_customers").value = (db.lists.customers || []).join("\n");
+  document.getElementById("list_suppliers").value = (db.lists.suppliers || []).join("\n");
+  document.getElementById("list_zones").value = (db.lists.zones || []).join("\n");
+  document.getElementById("list_cc_origins").value = (db.lists.ccOrigins || []).join("\n");
+  document.getElementById("list_cc_displays").value = (db.lists.ccDisplays || []).join("\n");
+  document.getElementById("strictToggle").checked = !!db.settings.strictLists;
+}
+function saveListsFromUI(){
+  db.lists.customers = splitLines_(document.getElementById("list_customers").value);
+  db.lists.suppliers = splitLines_(document.getElementById("list_suppliers").value);
+  db.lists.zones = splitLines_(document.getElementById("list_zones").value);
+  db.lists.ccOrigins = splitLines_(document.getElementById("list_cc_origins").value);
+  db.lists.ccDisplays = splitLines_(document.getElementById("list_cc_displays").value);
+  db.settings.strictLists = document.getElementById("strictToggle").checked;
+  saveDB(db);
+  refreshListsUI_();
+  toast("Lists saved");
+}
+function mergeListsFromData(){
+  db.lists.customers = uniqueSorted_([...(db.lists.customers||[]), ...db.customers.map(x=>x.name)]);
+  db.lists.suppliers = uniqueSorted_([...(db.lists.suppliers||[]), ...db.suppliers.map(x=>x.name)]);
+  db.lists.zones     = uniqueSorted_([...(db.lists.zones||[]), ...db.customers.map(x=>x.zone), ...db.suppliers.map(x=>x.zone)]);
+  db.lists.ccOrigins = uniqueSorted_([...(db.lists.ccOrigins||[]), ...db.customers.map(x=>x.ccOrigin).filter(Boolean), ...db.suppliers.map(x=>x.ccOrigin).filter(Boolean)]);
+  db.lists.ccDisplays= uniqueSorted_([...(db.lists.ccDisplays||[]), ...db.customers.map(x=>x.ccDisplay).filter(Boolean), ...db.suppliers.map(x=>x.ccDisplay).filter(Boolean)]);
+  saveDB(db);
+  loadListsToUI();
+  refreshListsUI_();
+  toast("Merged from data");
+}
+function clearLists(){
+  if(!confirm("Clear master lists only? (Your saved records remain)")) return;
+  db.lists = { customers: [], suppliers: [], zones: [], ccOrigins: [], ccDisplays: [] };
+  saveDB(db);
+  loadListsToUI();
+  refreshListsUI_();
+  toast("Lists cleared");
+}
+
+/* Events */
+document.getElementById("c_add").addEventListener("click", upsertCustomer);
+document.getElementById("s_add").addEventListener("click", upsertSupplier);
+document.getElementById("c_clear").addEventListener("click", clearCustomerForm);
+document.getElementById("s_clear").addEventListener("click", clearSupplierForm);
+document.getElementById("c_quality").addEventListener("change", ()=> toggleCcBox("c"));
+document.getElementById("s_quality").addEventListener("change", ()=> toggleCcBox("s"));
+
+["c_search","c_filterQuality","c_filterZone"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", renderCustomers);
+  document.getElementById(id).addEventListener("change", renderCustomers);
+});
+["s_search","s_filterQuality","s_filterZone"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", renderSuppliers);
+  document.getElementById(id).addEventListener("change", renderSuppliers);
+});
+
+document.getElementById("c_exportCsv").addEventListener("click", exportCustomersCSV);
+document.getElementById("s_exportCsv").addEventListener("click", exportSuppliersCSV);
+
+document.getElementById("exportJson").addEventListener("click", exportJSON);
+document.getElementById("importJson").addEventListener("click", ()=> document.getElementById("fileInput").click());
+document.getElementById("fileInput").addEventListener("change", (e)=>{
+  const f = e.target.files?.[0];
+  if(f) importJSONFile(f);
+  e.target.value = "";
+});
+document.getElementById("wipeAll").addEventListener("click", wipeAll);
+
+document.getElementById("m_run").addEventListener("click", runMatch);
+document.getElementById("m_clear").addEventListener("click", ()=>{
+  document.getElementById("m_zone").value = "";
+  document.getElementById("m_quality").value = "";
+  document.getElementById("m_cc_callback").value = "";
+  document.getElementById("m_cc_origin").value = "";
+  document.getElementById("m_cc_display").value = "";
+  document.getElementById("m_tbody").innerHTML = `<tr><td colspan="5" class="small">Run a match to see business cases.</td></tr>`;
+});
+
+document.getElementById("lists_load").addEventListener("click", ()=>{ loadListsToUI(); toast("Loaded lists"); });
+document.getElementById("lists_save").addEventListener("click", saveListsFromUI);
+document.getElementById("lists_merge").addEventListener("click", mergeListsFromData);
+document.getElementById("lists_clear").addEventListener("click", clearLists);
+document.getElementById("strictToggle").addEventListener("change", ()=>{
+  db.settings.strictLists = document.getElementById("strictToggle").checked;
+  saveDB(db);
+  toast("Strict mode", db.settings.strictLists ? "Enabled" : "Disabled");
+});
+
+/* Init */
+loadTheme();
+loadListsToUI();
+refreshListsUI_();
+renderAll();
+toggleCcBox("c");
+toggleCcBox("s");
+document.getElementById("m_tbody").innerHTML = `<tr><td colspan="5" class="small">Run a match to see business cases.</td></tr>`;
 </script>
 </body>
 </html>
